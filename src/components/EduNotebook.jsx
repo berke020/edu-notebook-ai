@@ -4,7 +4,7 @@ import {
   MessageSquare, Sun, Moon, Send, Bot, Zap, CheckCircle,
   AlertCircle, ChevronLeft, ChevronRight, Layers, List,
   RotateCw, GraduationCap, Clock, History, Plus, Edit2, Check, X, Info,
-  Brain, Link2, Columns2, Maximize2, Minimize2, Mic, ArrowRight, Video, Search, Tag, Share2, MoreVertical
+  Brain, Link2, Columns2, Maximize2, Minimize2, Mic, ArrowRight, Video, Search, Tag, Share2, MoreVertical, Eye, Star
 } from 'lucide-react';
 
 // Mevcut import satırını güncelle:
@@ -47,6 +47,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const [editingSourceId, setEditingSourceId] = useState(null);
   const [editingSourceName, setEditingSourceName] = useState('');
+  const [previewSourceId, setPreviewSourceId] = useState(null);
   const [sourceInputMode, setSourceInputMode] = useState('file');
   const [sourceUrl, setSourceUrl] = useState('');
   const [sourceText, setSourceText] = useState('');
@@ -75,6 +76,9 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
   const [showTitleEditModal, setShowTitleEditModal] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
   const [isInteractionModalOpen, setIsInteractionModalOpen] = useState(false);
+  const [chatSearch, setChatSearch] = useState('');
+  const [favoriteTools, setFavoriteTools] = useState([]);
+  const [isSavingTitle, setIsSavingTitle] = useState(false);
 
   const themeStyles = isDarkMode
     ? {
@@ -159,6 +163,14 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
   useEffect(() => {
     if (!isMobileView) setIsInteractionModalOpen(false);
   }, [isMobileView]);
+
+  useEffect(() => {
+    try {
+      const key = `favorite_tools_${user?.id || 'anon'}`;
+      const stored = JSON.parse(localStorage.getItem(key) || '[]');
+      if (Array.isArray(stored)) setFavoriteTools(stored);
+    } catch {}
+  }, [user?.id]);
 
   const [sessionCategory, setSessionCategory] = useState(null);
   const categoryId = (projectCategory?.id || sessionCategory?.id || 'university');
@@ -766,12 +778,24 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
     setShowTitleEditModal(false);
   };
 
+  const toggleFavoriteTool = (toolId) => {
+    setFavoriteTools(prev => {
+      const next = prev.includes(toolId) ? prev.filter(id => id !== toolId) : [...prev, toolId];
+      try {
+        const key = `favorite_tools_${user?.id || 'anon'}`;
+        localStorage.setItem(key, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
   const saveTitle = async () => {
     if (!tempTitle.trim() || !sessionId) {
         setIsEditingTitle(false);
         return;
     }
 
+    setIsSavingTitle(true);
     const { error } = await supabase
         .from('chat_sessions')
         .update({ title: tempTitle })
@@ -783,6 +807,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
     }
     setIsEditingTitle(false);
     setShowTitleEditModal(false);
+    setIsSavingTitle(false);
   };
 
   const cancelEditingTitle = () => {
@@ -2545,6 +2570,41 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
 
   const currentToolLabel = interactionTools.find((tool) => tool.id === interactionType)?.label || 'Etkileşim';
   const isMobileOverlay = isMobileView && isInteractionModalOpen;
+  const favoriteToolList = interactionTools.filter(t => favoriteTools.includes(t.id));
+  const selectedSourcesCount = getSelectedSources().length;
+  const normalizedChatSearch = chatSearch.trim().toLowerCase();
+  const displayedMessages = normalizedChatSearch
+    ? messages.filter(m => (m.text || '').toLowerCase().includes(normalizedChatSearch))
+    : messages;
+
+  const renderToolCard = (tool) => {
+    const isFavorite = favoriteTools.includes(tool.id);
+    return (
+      <div key={tool.id} className="flex items-stretch gap-2">
+        <button
+          onClick={() => handleInteraction(tool.id)}
+          disabled={isReadOnly}
+          className={`flex-1 flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${interactionType === tool.id ? 'bg-[rgba(245,184,75,0.16)] border-[var(--accent)] text-[var(--accent)]' : 'bg-[var(--panel-2)] border-[var(--border)] text-[var(--muted)] hover:text-[var(--text)] hover:border-[var(--accent-3)]'} ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          <div className="flex items-center gap-2">
+            <tool.icon size={14} />
+            <span>{tool.label}</span>
+          </div>
+          <ArrowRight size={12} className="opacity-60" />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleFavoriteTool(tool.id);
+          }}
+          className={`p-2 rounded-xl border transition-colors ${isFavorite ? 'border-[var(--accent)] bg-[rgba(245,184,75,0.16)] text-[var(--accent)]' : 'border-[var(--border)] bg-[var(--panel-2)] text-[var(--muted)] hover:text-[var(--text)]'}`}
+          title={isFavorite ? 'Favoriden çıkar' : 'Favorilere ekle'}
+        >
+          <Star size={12} className={isFavorite ? 'fill-[var(--accent)]' : ''} />
+        </button>
+      </div>
+    );
+  };
 
   return (
     <div
@@ -2775,7 +2835,8 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
           </div>
           <div className="space-y-2">
               {visibleSources.map(file => (
-              <div key={file.id} className="flex items-center justify-between p-3 rounded-xl border text-sm group bg-[var(--panel-2)] border-[var(--border)]">
+              <div key={file.id} className="p-3 rounded-xl border text-sm group bg-[var(--panel-2)] border-[var(--border)]">
+                  <div className="flex items-center justify-between gap-3 overflow-hidden">
                   <div className="flex items-center gap-3 overflow-hidden">
                   <label className="flex items-center">
                     <input
@@ -2850,12 +2911,26 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
                   </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <button onClick={() => setPreviewSourceId(prev => prev === file.id ? null : file.id)} className="text-[var(--muted)] hover:text-[var(--accent)] transition-colors p-1">
+                      <Eye size={14} />
+                    </button>
                     <button onClick={() => !isReadOnly && startTaggingSource(file)} className="text-[var(--muted)] hover:text-[var(--accent-3)] transition-colors p-1 disabled:opacity-40" disabled={isReadOnly}>
                       <Tag size={14} />
                     </button>
                     <button onClick={() => removeSource(file.id)} disabled={isReadOnly} className="text-[var(--muted)] hover:text-[var(--danger)] transition-colors p-1 disabled:opacity-40"><XCircle size={16} /></button>
                   </div>
               </div>
+              {previewSourceId === file.id && (
+                <div className="mt-2 p-3 rounded-xl bg-[var(--panel)] border border-[var(--border)] text-[10px] text-[var(--muted)]">
+                  {file.mimeType?.startsWith('image/') && file.data ? (
+                    <img src={`data:${file.mimeType};base64,${file.data}`} alt={file.name} className="w-full rounded-lg" />
+                  ) : file.textContent ? (
+                    <div>{file.textContent.replace(/\s+/g, ' ').slice(0, 220)}...</div>
+                  ) : (
+                    <div>Önizleme mevcut değil.</div>
+                  )}
+                </div>
+              )}
               ))}
           </div>
           <div className="mt-4">
@@ -2909,10 +2984,11 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
                             value={tempTitle}
                             onChange={(e) => setTempTitle(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && saveTitle()}
-                            className="flex-1 text-sm px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[var(--accent-3)] bg-[var(--panel-2)] border-[var(--border)] text-[var(--text)]"
+                            disabled={isSavingTitle}
+                            className="flex-1 text-sm px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[var(--accent-3)] bg-[var(--panel-2)] border-[var(--border)] text-[var(--text)] disabled:opacity-60"
                         />
-                        <button onClick={saveTitle} className="p-1 text-[var(--accent-2)] hover:bg-[var(--panel-2)] rounded"><Check size={16}/></button>
-                        <button onClick={cancelEditingTitle} className="p-1 text-[var(--danger)] hover:bg-[var(--panel-2)] rounded"><X size={16}/></button>
+                        <button onClick={saveTitle} disabled={isSavingTitle} className="p-1 text-[var(--accent-2)] hover:bg-[var(--panel-2)] rounded disabled:opacity-60"><Check size={16}/></button>
+                        <button onClick={cancelEditingTitle} disabled={isSavingTitle} className="p-1 text-[var(--danger)] hover:bg-[var(--panel-2)] rounded disabled:opacity-60"><X size={16}/></button>
                     </div>
                 ) : (
                     <div className="flex items-center gap-2 group md:cursor-pointer pointer-events-none md:pointer-events-auto" onClick={() => sessionId && startEditingTitle()}>
@@ -2999,6 +3075,29 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
               <div className="text-[var(--muted)]">{resumeHint}</div>
             </div>
           )}
+          {messages.length > 0 && (
+            <div className="sticky top-0 z-10 bg-[var(--panel)] pb-4">
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)]">
+                <Search size={14} className="text-[var(--muted)]" />
+                <input
+                  value={chatSearch}
+                  onChange={(e) => setChatSearch(e.target.value)}
+                  placeholder="Sohbette ara..."
+                  className="bg-transparent text-xs outline-none w-full text-[var(--text)]"
+                />
+                {chatSearch && (
+                  <button onClick={() => setChatSearch('')} className="text-[10px] text-[var(--muted)]">
+                    Temizle
+                  </button>
+                )}
+              </div>
+              {chatSearch && (
+                <div className="text-[10px] text-[var(--muted)] mt-2">
+                  {displayedMessages.length} sonuç bulundu
+                </div>
+              )}
+            </div>
+          )}
           {messages.length === 0 && (
             <div className="h-full flex flex-col items-center justify-center text-center p-8">
               <div className="w-20 h-20 bg-[var(--panel)] border border-[var(--border)] text-[var(--accent)] rounded-2xl flex items-center justify-center mb-4"><BookOpen size={40} /></div>
@@ -3006,10 +3105,22 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
               <p className="max-w-md text-sm text-[var(--muted)]">Sol panelden kaynaklarını yükle. Sağ panelde etkileşim araçlarını kullanarak hızlı öğren.</p>
             </div>
           )}
-          {messages.map((msg, idx) => (
+          {displayedMessages.map((msg, idx) => (
             <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl p-4 shadow-sm text-sm ${msg.role === 'user' ? 'bg-[var(--accent)] text-[#1b1b1b] rounded-tr-sm' : 'bg-[var(--panel)] border border-[var(--border)] text-[var(--text)] rounded-tl-sm'}`}>
-                {msg.role === 'user' ? <div className="whitespace-pre-wrap">{msg.text}</div> : <SimpleMarkdownRenderer content={msg.text} />}
+                {msg.role === 'user' ? (
+                  <div className="whitespace-pre-wrap">{msg.text}</div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-[10px] text-[var(--muted)]">
+                      <span className="px-2 py-0.5 rounded-full bg-[var(--panel-2)] border border-[var(--border)]">
+                        Kaynaklı Yanıt
+                      </span>
+                      <span>Seçili kaynaklara dayanır</span>
+                    </div>
+                    <SimpleMarkdownRenderer content={msg.text} />
+                  </div>
+                )}
                 {msg.role === 'model' && Array.isArray(msg.sources) && msg.sources.length > 0 && (
                   <div className="mt-3 text-[10px] text-[var(--muted)]">
                     Kaynaklar: {msg.sources.join(', ')}
@@ -3018,11 +3129,21 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
               </div>
             </div>
           ))}
+          {chatSearch && displayedMessages.length === 0 && (
+            <div className="text-center text-xs text-[var(--muted)]">Sonuç bulunamadı.</div>
+          )}
           {hasSentMessage && isChatLoading && <div className="flex justify-start"><div className="p-4 rounded-2xl bg-[var(--panel)] border border-[var(--border)]"><span className="animate-pulse text-[var(--muted)]">Düşünüyor...</span></div></div>}
           <div ref={chatEndRef} />
         </div>
 
         <div className="p-4 border-t bg-[var(--panel)] border-[var(--border)] backdrop-blur-xl">
+          <div className="max-w-3xl mx-auto mb-3 flex items-center justify-between text-[10px] text-[var(--muted)]">
+            <div className="flex items-center gap-2">
+              <Info size={12} className="text-[var(--accent-3)]" />
+              Yanıtlar sadece seçili kaynaklara göre üretilir.
+            </div>
+            <div>Seçili kaynak: {selectedSourcesCount}</div>
+          </div>
           <div className="max-w-3xl mx-auto flex gap-3 items-end">
             <textarea
               ref={chatInputRef}
@@ -3161,13 +3282,14 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
                 value={tempTitle}
                 onChange={(e) => setTempTitle(e.target.value)}
                 placeholder="Yeni oda adı"
-                className="w-full px-3 py-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-sm"
+                disabled={isSavingTitle}
+                className="w-full px-3 py-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-sm disabled:opacity-60"
               />
               <div className="flex items-center gap-2">
-                <button onClick={saveTitle} className="flex-1 px-3 py-2 rounded-xl bg-[var(--accent)] text-[#1b1b1b] text-xs font-semibold">
-                  Kaydet
+                <button onClick={saveTitle} disabled={isSavingTitle} className="flex-1 px-3 py-2 rounded-xl bg-[var(--accent)] text-[#1b1b1b] text-xs font-semibold disabled:opacity-60">
+                  {isSavingTitle ? 'Kaydediliyor...' : 'Kaydet'}
                 </button>
-                <button onClick={cancelTitleModal} className="flex-1 px-3 py-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-xs text-[var(--muted)]">
+                <button onClick={cancelTitleModal} disabled={isSavingTitle} className="flex-1 px-3 py-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-xs text-[var(--muted)] disabled:opacity-60">
                   Vazgeç
                 </button>
               </div>
@@ -3419,21 +3541,19 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
               )}
             </div>
           )}
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            {interactionTools.map((tool) => (
-              <button
-                key={tool.id}
-                onClick={() => handleInteraction(tool.id)}
-                disabled={isReadOnly}
-                className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${interactionType === tool.id ? 'bg-[rgba(245,184,75,0.16)] border-[var(--accent)] text-[var(--accent)]' : 'bg-[var(--panel-2)] border-[var(--border)] text-[var(--muted)] hover:text-[var(--text)] hover:border-[var(--accent-3)]'} ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <div className="flex items-center gap-2">
-                  <tool.icon size={14} />
-                  <span>{tool.label}</span>
-                </div>
-                <ArrowRight size={12} className="opacity-60" />
-              </button>
-            ))}
+          {favoriteToolList.length > 0 && (
+            <div className="mt-4">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] mb-2">Favoriler</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {favoriteToolList.map((tool) => renderToolCard(tool))}
+              </div>
+            </div>
+          )}
+          <div className="mt-4">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] mb-2">Tüm Araçlar</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {interactionTools.map((tool) => renderToolCard(tool))}
+            </div>
           </div>
           <div className="mt-5">
             <div className="flex items-center justify-between text-xs text-[var(--muted)] mb-2">
