@@ -197,6 +197,17 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
   }, []);
 
   useEffect(() => {
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isMobileView) setIsInteractionModalOpen(false);
   }, [isMobileView]);
 
@@ -3917,7 +3928,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
             )}
             {/* SAĞ PANEL İÇERİĞİ */}
             <div className={isMobileOverlay ? 'hidden' : ''}>
-             <div className="p-5 border-b border-[var(--border)]">
+             <div className="p-5 border-b border-[var(--border)] max-h-[45vh] overflow-y-auto min-h-0">
           <div className="flex items-center justify-between text-[var(--text)]">
             <div className="flex items-center gap-2 font-semibold"><Zap size={18} className="text-[var(--accent)]" /><span>Etkileşim</span></div>
             <div className="flex items-center gap-2">
