@@ -95,6 +95,9 @@ create table if not exists room_shares (
   token text unique not null,
   role text default 'viewer',
   created_by uuid references auth.users(id) on delete set null,
+  password_hash text,
+  max_views integer,
+  max_devices integer,
   expires_at timestamp with time zone,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
@@ -108,9 +111,15 @@ create table if not exists room_share_access (
   session_id bigint references chat_sessions(id) on delete cascade,
   role text,
   user_id uuid references auth.users(id) on delete set null,
+  device_id text,
   user_agent text,
   accessed_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+alter table room_shares add column if not exists password_hash text;
+alter table room_shares add column if not exists max_views integer;
+alter table room_shares add column if not exists max_devices integer;
+alter table room_share_access add column if not exists device_id text;
 
 alter table room_share_access enable row level security;
 create policy "Herkese açık (Test için)" on room_share_access for all using (true);

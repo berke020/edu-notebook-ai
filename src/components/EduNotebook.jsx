@@ -63,6 +63,9 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareRole, setShareRole] = useState('viewer');
   const [shareExpireHours, setShareExpireHours] = useState(72);
+  const [sharePassword, setSharePassword] = useState('');
+  const [shareMaxViews, setShareMaxViews] = useState(0);
+  const [shareDeviceLimit, setShareDeviceLimit] = useState(0);
   const [shareLink, setShareLink] = useState('');
   const [roomAccessRole, setRoomAccessRole] = useState('owner');
   const [sessionOwnerId, setSessionOwnerId] = useState(null);
@@ -70,6 +73,10 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
   const [shareList, setShareList] = useState([]);
   const [isShareLoading, setIsShareLoading] = useState(false);
   const [shareAccessLogs, setShareAccessLogs] = useState([]);
+  const [sharePasswordRequired, setSharePasswordRequired] = useState(false);
+  const [sharePasswordInput, setSharePasswordInput] = useState('');
+  const [sharePasswordError, setSharePasswordError] = useState('');
+  const [pendingShareData, setPendingShareData] = useState(null);
   const [showExportModal, setShowExportModal] = useState(false);
   const [currentSourceMeta, setCurrentSourceMeta] = useState({ names: [], ids: [] });
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
@@ -258,6 +265,8 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
   const [presentationComments, setPresentationComments] = useState({});
   const [presentationRatings, setPresentationRatings] = useState({});
   const [presentationShowNotes, setPresentationShowNotes] = useState(true);
+  const [presentationBrandName, setPresentationBrandName] = useState('');
+  const [presentationBrandMode, setPresentationBrandMode] = useState('watermark');
   const [presentationShareLink, setPresentationShareLink] = useState('');
   const [laserPos, setLaserPos] = useState({ x: 0, y: 0 });
   const [laserVisible, setLaserVisible] = useState(false);
@@ -360,17 +369,16 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
           setAccessDenied(true);
           return;
         }
-        setRoomAccessRole(data.role || 'viewer');
-        setAccessDenied(false);
-        try {
-          await supabase.from('room_share_access').insert([{
-            share_id: data.id,
-            session_id: data.session_id,
-            role: data.role || 'viewer',
-            user_id: user?.id || null,
-            user_agent: navigator.userAgent
-          }]);
-        } catch {}
+        if (data.password_hash) {
+          const ok = sessionStorage.getItem(`share_pass_${data.token}`) === '1';
+          if (!ok) {
+            setPendingShareData(data);
+            setSharePasswordRequired(true);
+            setAccessDenied(false);
+            return;
+          }
+        }
+        await finalizeShareAccess(data);
       } catch {
         setAccessDenied(true);
       }
@@ -1072,8 +1080,83 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
     try {
       return JSON.stringify(data, null, 2);
     } catch {
-      return String(data);
+    return String(data);
     }
+  };
+
+  const getDeviceId = () => {
+    if (typeof window === 'undefined') return '';
+    const key = 'edunotebook_device_id';
+    let id = localStorage.getItem(key);
+    if (!id) {
+      id = (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+      localStorage.setItem(key, id);
+    }
+    return id;
+  };
+
+  const hashString = async (value) => {
+    if (!value) return '';
+    try {
+      if (crypto?.subtle) {
+        const enc = new TextEncoder().encode(value);
+        const buf = await crypto.subtle.digest('SHA-256', enc);
+        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+    } catch {}
+    return value;
+  };
+
+  const finalizeShareAccess = async (data) => {
+    const deviceId = getDeviceId();
+    let accessLogs = [];
+    try {
+      const res = await supabase
+        .from('room_share_access')
+        .select('id, device_id')
+        .eq('share_id', data.id);
+      accessLogs = res.data || [];
+    } catch {}
+    const totalViews = accessLogs.length;
+    const uniqueDevices = new Set(accessLogs.map(l => l.device_id).filter(Boolean)).size;
+    const hasDevice = accessLogs.some(l => l.device_id === deviceId);
+    if (data.max_views && totalViews >= data.max_views) {
+      setShareStatus('Görüntüleme limiti doldu.');
+      setAccessDenied(true);
+      return;
+    }
+    if (data.max_devices && !hasDevice && uniqueDevices >= data.max_devices) {
+      setShareStatus('Cihaz limiti doldu.');
+      setAccessDenied(true);
+      return;
+    }
+    setRoomAccessRole(data.role || 'viewer');
+    setAccessDenied(false);
+    try {
+      await supabase.from('room_share_access').insert([{
+        share_id: data.id,
+        session_id: data.session_id,
+        role: data.role || 'viewer',
+        user_id: user?.id || null,
+        user_agent: navigator.userAgent,
+        device_id: deviceId
+      }]);
+    } catch {}
+  };
+
+  const handleSharePasswordSubmit = async () => {
+    if (!pendingShareData) return;
+    const hashed = await hashString(sharePasswordInput.trim());
+    if (!hashed || hashed !== pendingShareData.password_hash) {
+      setSharePasswordError('Parola hatalı.');
+      return;
+    }
+    sessionStorage.setItem(`share_pass_${pendingShareData.token}`, '1');
+    setSharePasswordRequired(false);
+    setSharePasswordInput('');
+    setSharePasswordError('');
+    await finalizeShareAccess(pendingShareData);
+    setPendingShareData(null);
   };
 
   const copyInteractionOutput = async () => {
@@ -1119,12 +1202,18 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
     if (!sessionId) return;
     const token = (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     const expiresAt = shareExpireHours ? new Date(Date.now() + shareExpireHours * 3600 * 1000).toISOString() : null;
+    const passwordHash = sharePassword ? await hashString(sharePassword.trim()) : null;
+    const maxViews = shareMaxViews ? Number(shareMaxViews) : null;
+    const maxDevices = shareDeviceLimit ? Number(shareDeviceLimit) : null;
     const payload = {
       session_id: sessionId,
       token,
       role: shareRole,
       created_by: user?.id || null,
-      expires_at: expiresAt
+      expires_at: expiresAt,
+      password_hash: passwordHash || null,
+      max_views: maxViews || null,
+      max_devices: maxDevices || null
     };
     const { data, error } = await supabase.from('room_shares').insert([payload]).select().single();
     if (error || !data) {
@@ -1163,7 +1252,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
       .select('*')
       .eq('session_id', sessionId)
       .order('accessed_at', { ascending: false })
-      .limit(20);
+      .limit(200);
     if (data) setShareAccessLogs(data);
   };
 
@@ -2217,7 +2306,9 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
       layout: presentationLayout,
       transition: presentationTransition,
       expiresAt,
-      password: presentationSharePassword || null
+      password: presentationSharePassword || null,
+      brandName: presentationBrandName || null,
+      brandMode: presentationBrandMode || 'watermark'
     };
     localStorage.setItem(`share_${id}`, JSON.stringify(payload));
     setPresentationShareLink(`${window.location.origin}/share/${id}`);
@@ -2719,6 +2810,27 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
     }
     return list.slice(0, 3);
   }, [interactionTools, categoryId, sources]);
+  const shareStatsById = useMemo(() => {
+    const map = {};
+    shareAccessLogs.forEach(log => {
+      const id = log.share_id;
+      if (!id) return;
+      if (!map[id]) {
+        map[id] = { total: 0, devices: new Set(), last: null };
+      }
+      map[id].total += 1;
+      if (log.device_id) map[id].devices.add(log.device_id);
+      const at = log.accessed_at ? new Date(log.accessed_at) : null;
+      if (at && (!map[id].last || at > map[id].last)) map[id].last = at;
+    });
+    return map;
+  }, [shareAccessLogs]);
+  const shareSummaryStats = useMemo(() => {
+    const total = shareAccessLogs.length;
+    const devices = new Set(shareAccessLogs.map(l => l.device_id).filter(Boolean)).size;
+    const last = shareAccessLogs[0]?.accessed_at ? new Date(shareAccessLogs[0].accessed_at) : null;
+    return { total, devices, last };
+  }, [shareAccessLogs]);
 
   const renderToolCard = (tool) => {
     const isFavorite = favoriteTools.includes(tool.id);
@@ -2767,6 +2879,33 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
             <button onClick={() => onBackHome && onBackHome()} className="px-4 py-2 rounded-xl bg-[var(--accent)] text-[#1b1b1b] text-sm font-semibold">
               Ana Sayfa
             </button>
+          </div>
+        </div>
+      )}
+      {sharePasswordRequired && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-3xl bg-[var(--panel)] border border-[var(--border)] p-5">
+            <div className="text-sm font-semibold mb-2">Paylaşım Parolası</div>
+            <div className="text-xs text-[var(--muted)] mb-3">Bu oda parola korumalı. Devam etmek için parolayı girin.</div>
+            <input
+              type="password"
+              value={sharePasswordInput}
+              onChange={(e) => setSharePasswordInput(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-sm"
+              placeholder="Parola"
+            />
+            {sharePasswordError && <div className="text-[10px] text-[var(--danger)] mt-2">{sharePasswordError}</div>}
+            <div className="flex items-center gap-2 mt-4">
+              <button onClick={handleSharePasswordSubmit} className="flex-1 px-3 py-2 rounded-xl bg-[var(--accent)] text-[#1b1b1b] text-xs font-semibold">
+                Giriş Yap
+              </button>
+              <button
+                onClick={() => { setSharePasswordRequired(false); setAccessDenied(true); }}
+                className="flex-1 px-3 py-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-xs text-[var(--muted)]"
+              >
+                Vazgeç
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -3363,6 +3502,40 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
                   className="w-full px-3 py-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-xs"
                 />
               </div>
+              <div>
+                <div className="text-[10px] text-[var(--muted)] mb-1">Parola (opsiyonel)</div>
+                <input
+                  type="password"
+                  value={sharePassword}
+                  onChange={(e) => setSharePassword(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-xs"
+                  placeholder="••••••"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <div className="text-[10px] text-[var(--muted)] mb-1">Görüntüleme Limiti</div>
+                  <input
+                    type="number"
+                    min="0"
+                    value={shareMaxViews}
+                    onChange={(e) => setShareMaxViews(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-xs"
+                    placeholder="0 = sınırsız"
+                  />
+                </div>
+                <div>
+                  <div className="text-[10px] text-[var(--muted)] mb-1">IP/Cihaz Limiti</div>
+                  <input
+                    type="number"
+                    min="0"
+                    value={shareDeviceLimit}
+                    onChange={(e) => setShareDeviceLimit(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-xs"
+                    placeholder="0 = sınırsız"
+                  />
+                </div>
+              </div>
               <button onClick={createRoomShare} className="w-full px-3 py-2 rounded-xl bg-[var(--accent)] text-[#1b1b1b] text-xs font-semibold">
                 Paylaşım Linki Oluştur
               </button>
@@ -3374,6 +3547,14 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
               {shareStatus && (
                 <div className="text-[10px] text-[var(--muted)]">{shareStatus}</div>
               )}
+              <div className="mt-4 p-3 rounded-xl bg-[var(--panel-2)] border border-[var(--border)]">
+                <div className="text-[10px] tracking-[0.3em] font-bold text-[var(--muted)] mb-2">GÖRÜNTÜLEME ÖZETİ</div>
+                <div className="flex flex-wrap gap-2 text-[10px] text-[var(--muted)]">
+                  <span>Toplam: {shareSummaryStats.total}</span>
+                  <span>Tekil cihaz: {shareSummaryStats.devices}</span>
+                  {shareSummaryStats.last && <span>Son: {shareSummaryStats.last.toLocaleString('tr-TR')}</span>}
+                </div>
+              </div>
               <div className="mt-4">
                 <div className="text-[10px] tracking-[0.3em] font-bold text-[var(--muted)] mb-2">AKTİF PAYLAŞIMLAR</div>
                 {isShareLoading ? (
@@ -3385,6 +3566,18 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
                     {shareList.map(s => (
                       <div key={s.id} className="p-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-[10px]">
                         <div className="font-semibold">{s.role || 'viewer'} • {s.expires_at ? new Date(s.expires_at).toLocaleDateString('tr-TR') : 'Süresiz'}</div>
+                        <div className="flex flex-wrap gap-2 text-[10px] text-[var(--muted)] mt-1">
+                          {s.password_hash && <span>Parola</span>}
+                          {s.max_views && <span>Limit: {s.max_views} görüntüleme</span>}
+                          {s.max_devices && <span>{s.max_devices} cihaz</span>}
+                        </div>
+                        {shareStatsById[s.id] && (
+                          <div className="flex flex-wrap gap-2 text-[10px] text-[var(--muted)] mt-1">
+                            <span>Görüntüleme: {shareStatsById[s.id].total}</span>
+                            <span>Tekil: {shareStatsById[s.id].devices.size}</span>
+                            {shareStatsById[s.id].last && <span>Son: {shareStatsById[s.id].last.toLocaleString('tr-TR')}</span>}
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 mt-2">
                           <button onClick={() => copyShareLink(s.token)} className="px-2 py-1 rounded-lg bg-[var(--panel)] border border-[var(--border)] text-[10px]">Kopyala</button>
                           <button onClick={() => revokeShare(s.id)} className="px-2 py-1 rounded-lg bg-[var(--panel)] border border-[var(--border)] text-[10px] text-[var(--danger)]">İptal</button>
@@ -4062,6 +4255,24 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
                       />
                       Süre dolunca otomatik geç
                     </label>
+                    <div className="text-xs text-[var(--muted)]">Marka / Watermark</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <input
+                        value={presentationBrandName}
+                        onChange={(e) => setPresentationBrandName(e.target.value)}
+                        placeholder="Marka adı (ops.)"
+                        className="px-3 py-2 rounded-xl bg-[var(--panel)] border border-[var(--border)] text-xs"
+                      />
+                      <select
+                        value={presentationBrandMode}
+                        onChange={(e) => setPresentationBrandMode(e.target.value)}
+                        className="px-3 py-2 rounded-xl bg-[var(--panel)] border border-[var(--border)] text-xs"
+                      >
+                        <option value="watermark">Watermark</option>
+                        <option value="header">Başlıkta Göster</option>
+                        <option value="none">Gizle</option>
+                      </select>
+                    </div>
                     <button onClick={createShareLink} className="px-3 py-2 rounded-xl bg-[var(--panel)] border border-[var(--border)] text-xs">
                       Sunumu Paylaş (Link)
                     </button>

@@ -7,12 +7,21 @@ export default function ShareQr() {
   const navigate = useNavigate();
   const url = useMemo(() => `${window.location.origin}/share/${id}`, [id]);
   const [qrUrl, setQrUrl] = useState('');
+  const [viewCount, setViewCount] = useState(0);
+  const [viewLog, setViewLog] = useState([]);
 
   useEffect(() => {
     QRCode.toDataURL(url, { margin: 1, width: 240 })
       .then(setQrUrl)
       .catch(() => setQrUrl(''));
   }, [url]);
+
+  useEffect(() => {
+    const views = Number(localStorage.getItem(`share_${id}_views`) || 0);
+    const log = JSON.parse(localStorage.getItem(`share_${id}_view_log`) || '[]');
+    setViewCount(views);
+    setViewLog(log);
+  }, [id]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0B0F14] text-[#E6E9EF]">
@@ -26,6 +35,14 @@ export default function ShareQr() {
           </div>
         )}
         <div className="text-[10px] text-white/60 mt-3 break-all">{url}</div>
+        <div className="mt-4 text-[10px] text-white/60">
+          Toplam görüntüleme: {viewCount}
+        </div>
+        {viewLog[0] && (
+          <div className="mt-1 text-[10px] text-white/60">
+            Son görüntüleme: {new Date(viewLog[0].ts).toLocaleString('tr-TR')}
+          </div>
+        )}
         <button onClick={() => navigate('/')} className="mt-4 px-3 py-2 rounded-lg bg-white/10 text-xs">
           Ana Sayfa
         </button>
