@@ -2814,7 +2814,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
         <header className="h-16 border-b flex items-center justify-between px-5 z-10 bg-[var(--panel)] border-[var(--border)] backdrop-blur-xl">
           <div className="flex items-center gap-3 overflow-hidden flex-1">
             {!isFocusMode && (
-              <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 rounded-lg hover:bg-[var(--panel-2)] text-[var(--muted)] flex-shrink-0">
+              <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 rounded-lg hover:bg-[var(--panel-2)] text-[var(--muted)] flex-shrink-0 hidden lg:inline-flex">
                 {isSidebarOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
               </button>
             )}
@@ -2862,12 +2862,9 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
           )}
           <div className="flex items-center gap-2">
             {!isFocusMode && (
-              <button
-                onClick={() => setIsMobileSourcesOpen(true)}
-                className="lg:hidden px-3 py-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-xs text-[var(--muted)] hover:text-[var(--text)]"
-              >
-                Kaynaklar
-              </button>
+              <div className="lg:hidden flex items-center gap-2 text-[var(--accent)] font-semibold text-sm" style={{ fontFamily: '"Fraunces", serif' }}>
+                <BookOpen size={18} /> EduNotebook
+              </div>
             )}
             {isOwner && (
               <button
