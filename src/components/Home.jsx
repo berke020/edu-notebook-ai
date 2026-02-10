@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Plus, History, User, ArrowRight, Search, CheckCircle, Users, GraduationCap, Briefcase, Flame, Calendar, Folder, BarChart3 } from 'lucide-react';
+import { BookOpen, Plus, History, User, ArrowRight, Search, CheckCircle, Users, GraduationCap, Briefcase, Flame, Calendar, Folder, BarChart3, MoreVertical, GripVertical } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 
 export default function Home({ onLogout }) {
@@ -31,6 +31,8 @@ export default function Home({ onLogout }) {
   const [sessionTags, setSessionTags] = useState({});
   const [selectedDay, setSelectedDay] = useState(null);
   const [dayEvents, setDayEvents] = useState([]);
+  const [showMobileNav, setShowMobileNav] = useState(false);
+  const [dragCourseId, setDragCourseId] = useState(null);
   const [profileDraft, setProfileDraft] = useState({
     full_name: '',
     role_label: '',
@@ -145,12 +147,21 @@ export default function Home({ onLogout }) {
         let data = null;
         let error = null;
         if (currentUser?.id) {
-          const res = await supabase.from('courses').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+          const res = await supabase
+            .from('courses')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .order('sort_order', { ascending: true, nullsLast: true })
+            .order('created_at', { ascending: false });
           data = res.data;
           error = res.error;
         }
         if (error || !currentUser?.id) {
-          const res = await supabase.from('courses').select('*').order('created_at', { ascending: false });
+          const res = await supabase
+            .from('courses')
+            .select('*')
+            .order('sort_order', { ascending: true, nullsLast: true })
+            .order('created_at', { ascending: false });
           data = res.data;
           error = res.error;
         }
@@ -291,6 +302,9 @@ export default function Home({ onLogout }) {
     (s.title || '').toLowerCase().includes(query.toLowerCase())
   );
   const lastSession = recentSessions[0];
+  const lastSessionAgeDays = lastSession ? Math.ceil((Date.now() - new Date(lastSession.created_at).getTime()) / 86400000) : null;
+  const quickContinueLabel = lastSessionAgeDays !== null && lastSessionAgeDays <= 1 ? 'Kaldığın Yerden Devam' : 'Son Çalışmaya Dön';
+  const focusLabel = lastSession?.category_id === 'thesis' ? 'Savunma Odak Modu' : lastSession?.category_id === 'jury' ? 'Jüri Odak Modu' : 'Odak Modu';
 
   const courseSessionCounts = useMemo(() => {
     const counts = new Map();
@@ -346,6 +360,13 @@ export default function Home({ onLogout }) {
     if (!communityQuery.trim()) return communityNotes;
     return communityNotes.filter(note => communityNoteText(note).toLowerCase().includes(communityQuery.toLowerCase()));
   }, [communityNotes, communityQuery]);
+
+  const communityFallback = [
+    { id: 'sample-1', note_type: 'quiz', payload: { question: 'Mitoz evrelerini sıralama notu: Profaz → Metafaz → Anafaz → Telofaz.' } },
+    { id: 'sample-2', note_type: 'summary', payload: { text: 'Beyaz eşya tasarımında erişilebilirlik için ergonomi ve kontrol paneli yüksekliği kritik.' } },
+    { id: 'sample-3', note_type: 'tip', payload: { text: 'Kavram haritası çıkarırken 3 ana başlık + 5 alt başlık yeterli.' } }
+  ];
+  const communityDisplayNotes = filteredCommunityNotes.length > 0 ? filteredCommunityNotes : communityFallback;
 
   useEffect(() => {
     try {
@@ -403,7 +424,8 @@ export default function Home({ onLogout }) {
 
   const addCourse = async () => {
     if (!newCourseName.trim()) return;
-    const payload = { name: newCourseName.trim() };
+    const maxOrder = Math.max(0, ...courses.map(c => Number(c.sort_order) || 0));
+    const payload = { name: newCourseName.trim(), sort_order: maxOrder + 1 };
     if (user?.id) payload.user_id = user.id;
     let { data, error } = await supabase.from('courses').insert([payload]).select().single();
     if (error && user?.id) {
@@ -446,6 +468,30 @@ export default function Home({ onLogout }) {
       setEvents(next);
       setNewEventTitle('');
       setNewEventDate('');
+    }
+  };
+
+  const reorderCourses = async (fromId, toId) => {
+    if (!fromId || !toId || fromId === toId) return;
+    const list = [...courses];
+    const fromIdx = list.findIndex(c => c.id === fromId);
+    const toIdx = list.findIndex(c => c.id === toId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const [moved] = list.splice(fromIdx, 1);
+    list.splice(toIdx, 0, moved);
+    const normalized = list.map((c, idx) => ({ ...c, sort_order: idx + 1 }));
+    setCourses(normalized);
+    try {
+      if (user?.id) {
+        await supabase.from('courses').upsert(
+          normalized.map(c => ({ id: c.id, sort_order: c.sort_order })),
+          { onConflict: 'id' }
+        );
+      } else {
+        localStorage.setItem('local_courses', JSON.stringify(normalized));
+      }
+    } catch {
+      localStorage.setItem('local_courses', JSON.stringify(normalized));
     }
   };
 
@@ -512,6 +558,31 @@ export default function Home({ onLogout }) {
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
     return (recentSessions || []).filter(s => new Date(s.created_at).getTime() >= cutoff).length;
   }, [recentSessions]);
+  const todayEvents = useMemo(() => {
+    const todayKey = new Date().toDateString();
+    return (events || []).filter(ev => new Date(ev.event_date).toDateString() === todayKey);
+  }, [events]);
+
+  const goalCountdown = useMemo(() => {
+    if (!goalPlan?.date) return null;
+    const target = new Date(goalPlan.date);
+    const diffDays = Math.ceil((target.getTime() - Date.now()) / 86400000);
+    const totalDays = Math.max(1, goalPlan.days || diffDays || 1);
+    const remaining = Math.max(0, diffDays);
+    const progress = Math.min(100, Math.round(((totalDays - remaining) / totalDays) * 100));
+    return { remaining, progress, totalDays };
+  }, [goalPlan]);
+
+  const weeklyGoalHours = profile?.weekly_goal_hours || 6;
+  const weeklyProgressPct = Math.min(100, Math.round((weeklyCount / Math.max(1, weeklyGoalHours)) * 100));
+
+  const avgQuizPct = useMemo(() => {
+    if (quizTrend.length === 0) return null;
+    const vals = quizTrend.map(d => Math.round((d.correct / Math.max(1, d.total)) * 100));
+    const avg = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+    const best = Math.max(...vals);
+    return { avg, best };
+  }, [quizTrend]);
   const topWeeklyCategory = useMemo(() => {
     const entries = Object.entries(weeklyCategoryCounts).sort((a, b) => b[1] - a[1]);
     return entries[0] ? { id: entries[0][0], count: entries[0][1] } : null;
@@ -586,12 +657,20 @@ export default function Home({ onLogout }) {
         }}
       >
         <header className="flex flex-col md:flex-row md:items-center justify-between px-4 md:px-8 py-4 md:py-6 gap-3 md:gap-4">
-          <div className="flex items-center gap-3 text-[var(--accent)] font-bold text-lg md:text-xl" style={{ fontFamily: '"Fraunces", serif' }}>
-            <BookOpen size={22} className="md:hidden" />
-            <BookOpen size={26} className="hidden md:block" />
-            <span className="truncate">EduNotebook</span>
+          <div className="flex items-center justify-between w-full md:w-auto">
+            <div className="flex items-center gap-3 text-[var(--accent)] font-bold text-lg md:text-xl" style={{ fontFamily: '"Fraunces", serif' }}>
+              <BookOpen size={22} className="md:hidden" />
+              <BookOpen size={26} className="hidden md:block" />
+              <span className="truncate">EduNotebook</span>
+            </div>
+            <button
+              onClick={() => setShowMobileNav(prev => !prev)}
+              className="md:hidden p-2 rounded-xl bg-[var(--panel)] border border-[var(--border)] text-[var(--muted)]"
+            >
+              <MoreVertical size={18} />
+            </button>
           </div>
-          <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto">
+          <div className="hidden md:flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto">
             {planLabel !== 'TEAM' && (
               <button
                 onClick={() => navigate('/#pricing')}
@@ -609,6 +688,37 @@ export default function Home({ onLogout }) {
             </div>
           </div>
         </header>
+        {showMobileNav && (
+          <div className="fixed inset-0 z-40 md:hidden">
+            <div className="absolute inset-0 bg-black/60" onClick={() => setShowMobileNav(false)} />
+            <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[90vw] max-w-sm rounded-3xl bg-[var(--panel)] border border-[var(--border)] p-4 space-y-3">
+              <div className="flex items-center gap-2 text-[var(--muted)] text-xs">
+                <User size={14} className="text-[var(--accent-3)]" />
+                <span>{profileName}</span>
+              </div>
+              {planLabel !== 'TEAM' && (
+                <button
+                  onClick={() => { navigate('/#pricing'); setShowMobileNav(false); }}
+                  className="w-full px-4 py-3 rounded-2xl bg-[var(--panel-2)] border border-[var(--border)] text-sm text-[var(--text)]"
+                >
+                  Planları Gör
+                </button>
+              )}
+              <button
+                onClick={() => { onLogout?.(); setShowMobileNav(false); }}
+                className="w-full px-4 py-3 rounded-2xl bg-[var(--panel-2)] border border-[var(--border)] text-sm text-[var(--text)]"
+              >
+                Çıkış Yap
+              </button>
+              <button
+                onClick={() => setShowMobileNav(false)}
+                className="w-full px-4 py-3 rounded-2xl bg-[var(--accent)] text-[#1b1b1b] text-sm font-semibold"
+              >
+                Kapat
+              </button>
+            </div>
+          </div>
+        )}
 
         <main className="px-8 pb-12">
           <section className="grid grid-cols-12 gap-6 mb-8 items-stretch">
@@ -630,12 +740,12 @@ export default function Home({ onLogout }) {
                   </button>
                   {lastSession && (
                     <button onClick={() => navigate(`/room/${lastSession.id}`)} className="px-5 py-3 rounded-2xl bg-[var(--panel-2)] border border-[var(--border)] text-sm text-[var(--text)] hover:border-[var(--accent-3)]">
-                      Hızlı Devam
+                      {quickContinueLabel}
                     </button>
                   )}
                   {lastSession && (
                     <button onClick={() => navigate(`/room/${lastSession.id}?focus=1`)} className="px-5 py-3 rounded-2xl bg-[var(--panel)] border border-[var(--border)] text-sm text-[var(--text)] hover:border-[var(--accent-3)]">
-                      Odak Modu
+                      {focusLabel}
                     </button>
                   )}
                 </div>
@@ -684,6 +794,21 @@ export default function Home({ onLogout }) {
                       );
                     })}
                   </div>
+                </div>
+                <div className="mt-5 p-4 rounded-2xl bg-[var(--panel-2)] border border-[var(--border)]">
+                  <div className="text-[10px] tracking-[0.3em] font-bold text-[var(--muted)] mb-3">BUGÜN YAPILACAKLAR</div>
+                  {todayEvents.length === 0 ? (
+                    <div className="text-[10px] text-[var(--muted)]">Bugün için etkinlik yok.</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {todayEvents.map(ev => (
+                        <div key={ev.id} className="p-2 rounded-xl bg-[var(--panel)] border border-[var(--border)] text-xs">
+                          <div className="font-semibold">{ev.title}</div>
+                          <div className="text-[10px] text-[var(--muted)]">{courseMap.get(ev.course_id)?.name || 'Genel'}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {lastSession && (
                   <div className="mt-6 p-4 rounded-2xl bg-[var(--panel-2)] border border-[var(--border)] flex items-center justify-between gap-3">
@@ -756,6 +881,22 @@ export default function Home({ onLogout }) {
                   </div>
                 </div>
                 <div className="mt-4 p-3 rounded-xl bg-[var(--panel-2)] border border-[var(--border)]">
+                  <div className="text-xs font-semibold mb-2">Haftalık Hedef</div>
+                  <div className="text-[10px] text-[var(--muted)] mb-2">Hedef: {weeklyGoalHours} oturum • Tamamlanan: {weeklyCount}</div>
+                  <div className="h-2 w-full rounded-full bg-black/20 overflow-hidden">
+                    <div className="h-full bg-[var(--accent)]" style={{ width: `${weeklyProgressPct}%` }} />
+                  </div>
+                </div>
+                {goalCountdown && (
+                  <div className="mt-4 p-3 rounded-xl bg-[var(--panel-2)] border border-[var(--border)]">
+                    <div className="text-xs font-semibold mb-2">Hedefe Kalan</div>
+                    <div className="text-[10px] text-[var(--muted)] mb-2">{goalCountdown.remaining} gün • Toplam {goalCountdown.totalDays} gün</div>
+                    <div className="h-2 w-full rounded-full bg-black/20 overflow-hidden">
+                      <div className="h-full bg-[var(--accent-3)]" style={{ width: `${goalCountdown.progress}%` }} />
+                    </div>
+                  </div>
+                )}
+                <div className="mt-4 p-3 rounded-xl bg-[var(--panel-2)] border border-[var(--border)]">
                   <div className="flex items-center gap-2 text-xs font-semibold mb-2">
                     <BarChart3 size={14} className="text-[var(--accent-3)]" />
                     Başarı Grafiği
@@ -764,6 +905,9 @@ export default function Home({ onLogout }) {
                     <div className="h-full bg-[var(--accent-3)]" style={{ width: `${Math.min(100, Math.round((stats.quizCorrect / Math.max(1, stats.quizTotal)) * 100))}%` }} />
                   </div>
                   <div className="text-[10px] text-[var(--muted)] mt-2">Doğruluk: {Math.round((stats.quizCorrect / Math.max(1, stats.quizTotal)) * 100)}%</div>
+                  {avgQuizPct && (
+                    <div className="text-[10px] text-[var(--muted)]">Son 7 gün ort.: %{avgQuizPct.avg} • En iyi: %{avgQuizPct.best}</div>
+                  )}
                   <div className="mt-3 grid grid-cols-7 gap-1 items-end">
                     {quizTrend.length === 0 ? (
                       <div className="text-[10px] text-[var(--muted)]">Henüz trend yok.</div>
@@ -815,13 +959,27 @@ export default function Home({ onLogout }) {
                 </div>
                 <div className="space-y-2">
                   <button onClick={() => setSelectedCourseId(null)} className={`w-full text-left p-3 rounded-xl border text-xs ${!selectedCourseId ? 'border-[var(--accent)] bg-[rgba(245,184,75,0.12)]' : 'border-[var(--border)] bg-[var(--panel-2)]'}`}>Tüm Dersler</button>
+                  <div className="text-[10px] text-[var(--muted)]">Sürükleyerek sırala</div>
                   {courses.map((c) => (
-                    <button key={c.id} onClick={() => setSelectedCourseId(c.id)} className={`w-full text-left p-3 rounded-xl border text-xs ${selectedCourseId === c.id ? 'border-[var(--accent)] bg-[rgba(245,184,75,0.12)]' : 'border-[var(--border)] bg-[var(--panel-2)]'}`}>
-                      <div className="flex items-center justify-between">
-                        <span>{c.name}</span>
-                        <span className="text-[10px] text-[var(--muted)]">{courseSessionCounts.get(c.id) || 0} çalışma</span>
-                      </div>
-                    </button>
+                    <div
+                      key={c.id}
+                      draggable
+                      onDragStart={() => setDragCourseId(c.id)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => {
+                        reorderCourses(dragCourseId, c.id);
+                        setDragCourseId(null);
+                      }}
+                      className={`w-full rounded-xl border ${selectedCourseId === c.id ? 'border-[var(--accent)] bg-[rgba(245,184,75,0.12)]' : 'border-[var(--border)] bg-[var(--panel-2)]'}`}
+                    >
+                      <button onClick={() => setSelectedCourseId(c.id)} className="w-full text-left p-3 rounded-xl text-xs flex items-center justify-between">
+                        <span className="truncate">{c.name}</span>
+                        <div className="flex items-center gap-2 text-[10px] text-[var(--muted)]">
+                          <span>{courseSessionCounts.get(c.id) || 0} çalışma</span>
+                          <GripVertical size={14} />
+                        </div>
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -954,18 +1112,20 @@ export default function Home({ onLogout }) {
                   />
                 </div>
                 <div className="space-y-2">
-                  {filteredCommunityNotes.length === 0 && (
+                  {communityDisplayNotes.length === 0 && (
                     <div className="p-3 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-xs text-[var(--muted)]">
                       Henüz topluluk notu yok. İlk notları sen başlatabilirsin.
                     </div>
                   )}
-                  {filteredCommunityNotes.map((note) => (
+                  {communityDisplayNotes.map((note) => (
                     <div key={note.id} className="p-3 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-xs">
                       {communityNoteText(note)}
                     </div>
                   ))}
                 </div>
-                {communityNotes.length > 0 && (
+                {filteredCommunityNotes.length === 0 && communityNotes.length === 0 ? (
+                  <div className="mt-3 text-[10px] text-[var(--muted)]">Örnek notlar (beta). İlk gerçek notları sen başlatabilirsin.</div>
+                ) : (
                   <div className="mt-3 text-[10px] text-[var(--muted)]">Notlar anonim ve doküman bazlıdır.</div>
                 )}
               </div>

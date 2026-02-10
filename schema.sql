@@ -4,6 +4,7 @@ create table if not exists courses (
   id bigint primary key generated always as identity,
   name text not null,
   user_id uuid references auth.users(id) on delete cascade,
+  sort_order int,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
