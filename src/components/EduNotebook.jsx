@@ -2524,7 +2524,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
 
   return (
     <div
-      className={`flex min-h-[100svh] overflow-hidden transition-colors duration-300 text-[var(--text)] flex-col lg:flex-row ${isFocusMode ? 'p-0 gap-0' : 'p-3 lg:p-5 gap-3 lg:gap-5'}`}
+      className={`flex min-h-[100svh] lg:h-screen lg:min-h-0 overflow-hidden transition-colors duration-300 text-[var(--text)] flex-col lg:flex-row ${isFocusMode ? 'p-0 gap-0' : 'p-3 lg:p-5 gap-3 lg:gap-5'}`}
       style={{
         ...themeStyles,
         backgroundColor: 'var(--bg)',
@@ -2605,7 +2605,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
         <aside
           className={`transition-all duration-300 ease-in-out flex flex-col backdrop-blur-xl shadow-xl bg-[var(--panel)] border border-[var(--border)]
           ${isMobileSourcesOpen ? 'fixed inset-x-3 bottom-4 h-[78vh] z-50 rounded-3xl' : 'hidden'}
-          lg:static lg:flex lg:rounded-3xl lg:z-auto
+          lg:static lg:flex lg:rounded-3xl lg:z-auto lg:h-full
           ${isSidebarOpen ? 'lg:w-80 lg:translate-x-0' : 'lg:w-0 lg:-translate-x-full lg:opacity-0 lg:overflow-hidden'}
           w-full`}
         >
@@ -2857,7 +2857,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
       )}
 
       {/* --- MAIN AREA --- */}
-      <main className={`flex-1 flex flex-col min-w-0 relative overflow-hidden bg-[var(--panel)] ${isFocusMode ? 'rounded-none border-0 shadow-none' : 'rounded-3xl border border-[var(--border)] shadow-xl'}`}>
+      <main className={`flex-1 flex flex-col min-w-0 relative overflow-hidden bg-[var(--panel)] lg:h-full ${isFocusMode ? 'rounded-none border-0 shadow-none' : 'rounded-3xl border border-[var(--border)] shadow-xl'}`}>
         <header className="h-16 border-b flex items-center justify-between px-5 z-10 bg-[var(--panel)] border-[var(--border)] backdrop-blur-xl">
           <div className="flex items-center gap-3 overflow-hidden flex-1">
             {!isFocusMode && (
@@ -3198,7 +3198,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
 
       {/* --- RIGHT SIDEBAR (Interaction) --- */}
       {!isFocusMode && (
-        <aside className={`flex flex-col bg-[var(--panel)] border border-[var(--border)] backdrop-blur-xl transition-all duration-300 rounded-3xl shadow-xl ${isMobileToolsOpen ? 'fixed inset-x-0 bottom-0 h-[75vh] z-50' : 'hidden lg:flex'} ${!isMobileToolsOpen ? (isInteractionExpanded ? 'w-[52vw] max-w-[980px]' : 'w-[30rem]') : 'w-full'}`}>
+        <aside className={`flex flex-col bg-[var(--panel)] border border-[var(--border)] backdrop-blur-xl transition-all duration-300 rounded-3xl shadow-xl lg:h-full ${isMobileToolsOpen ? 'fixed inset-x-0 bottom-0 h-[75vh] z-50' : 'hidden lg:flex'} ${!isMobileToolsOpen ? (isInteractionExpanded ? 'w-[52vw] max-w-[980px]' : 'w-[30rem]') : 'w-full'}`}>
             {/* SAĞ PANEL İÇERİĞİ */}
              <div className="p-5 border-b border-[var(--border)]">
           <div className="flex items-center justify-between text-[var(--text)]">
