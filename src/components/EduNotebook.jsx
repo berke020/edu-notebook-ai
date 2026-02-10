@@ -2512,7 +2512,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
 
   return (
     <div
-      className={`flex h-screen overflow-hidden transition-colors duration-300 text-[var(--text)] flex-col lg:flex-row ${isFocusMode ? 'p-0 gap-0' : 'p-3 lg:p-5 gap-3 lg:gap-5'}`}
+      className={`flex min-h-[100svh] overflow-hidden transition-colors duration-300 text-[var(--text)] flex-col lg:flex-row ${isFocusMode ? 'p-0 gap-0' : 'p-3 lg:p-5 gap-3 lg:gap-5'}`}
       style={{
         ...themeStyles,
         backgroundColor: 'var(--bg)',
