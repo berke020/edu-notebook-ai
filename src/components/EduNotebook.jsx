@@ -2566,7 +2566,39 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
         <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setIsMobileSourcesOpen(false)} />
       )}
       {showHeaderMenu && (
-        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setShowHeaderMenu(false)} />
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowHeaderMenu(false)} onTouchStart={() => setShowHeaderMenu(false)} />
+          <div className="absolute top-16 right-4 w-52 rounded-2xl bg-[var(--panel)] border border-[var(--border)] shadow-xl p-2" onClick={(e) => e.stopPropagation()}>
+            {isOwner && (
+              <button
+                onClick={() => { setShowShareModal(true); setShowHeaderMenu(false); }}
+                disabled={!sessionId}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-[var(--text)] hover:bg-[var(--panel-2)]"
+              >
+                <Share2 size={14} /> Paylaş
+              </button>
+            )}
+            <button
+              onClick={() => { sessionId && openTitleEditModal(); setShowHeaderMenu(false); }}
+              disabled={!sessionId}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-[var(--text)] hover:bg-[var(--panel-2)]"
+            >
+              <Edit2 size={14} /> Oda Adını Düzenle
+            </button>
+            <button
+              onClick={() => { setIsFocusMode(prev => !prev); setShowHeaderMenu(false); }}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-[var(--text)] hover:bg-[var(--panel-2)]"
+            >
+              {isFocusMode ? <Minimize2 size={14} /> : <Maximize2 size={14} />} {isFocusMode ? 'Odaktan Çık' : 'Odak Modu'}
+            </button>
+            <button
+              onClick={() => { setIsDarkMode(!isDarkMode); setShowHeaderMenu(false); }}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-[var(--text)] hover:bg-[var(--panel-2)]"
+            >
+              {isDarkMode ? <Sun size={14} /> : <Moon size={14} />} Tema
+            </button>
+          </div>
+        </div>
       )}
       {/* --- LEFT SIDEBAR --- */}
       {!isFocusMode && (
@@ -2910,43 +2942,11 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
             </button>
             <div className="relative md:hidden">
               <button
-                onClick={() => setShowHeaderMenu(prev => !prev)}
+                onClick={(e) => { e.stopPropagation(); setShowHeaderMenu(prev => !prev); }}
                 className="p-2.5 rounded-full bg-[var(--panel-2)] border border-[var(--border)] text-[var(--muted)]"
               >
                 <MoreVertical size={18} />
               </button>
-              {showHeaderMenu && (
-                <div className="absolute right-0 mt-2 w-44 rounded-2xl bg-[var(--panel)] border border-[var(--border)] shadow-xl p-2 z-50">
-                  {isOwner && (
-                    <button
-                      onClick={() => { setShowShareModal(true); setShowHeaderMenu(false); }}
-                      disabled={!sessionId}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-[var(--text)] hover:bg-[var(--panel-2)]"
-                    >
-                      <Share2 size={14} /> Paylaş
-                    </button>
-                  )}
-                  <button
-                    onClick={() => { setShowHeaderMenu(false); sessionId && openTitleEditModal(); }}
-                    disabled={!sessionId}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-[var(--text)] hover:bg-[var(--panel-2)]"
-                  >
-                    <Edit2 size={14} /> Oda Adını Düzenle
-                  </button>
-                  <button
-                    onClick={() => { setIsFocusMode(prev => !prev); setShowHeaderMenu(false); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-[var(--text)] hover:bg-[var(--panel-2)]"
-                  >
-                    {isFocusMode ? <Minimize2 size={14} /> : <Maximize2 size={14} />} {isFocusMode ? 'Odaktan Çık' : 'Odak Modu'}
-                  </button>
-                  <button
-                    onClick={() => { setIsDarkMode(!isDarkMode); setShowHeaderMenu(false); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-[var(--text)] hover:bg-[var(--panel-2)]"
-                  >
-                    {isDarkMode ? <Sun size={14} /> : <Moon size={14} />} Tema
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </header>
