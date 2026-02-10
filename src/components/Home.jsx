@@ -975,8 +975,8 @@ export default function Home({ onLogout }) {
       </div>
 
       {selectedDay && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={closeDayModal}>
-          <div className="w-full max-w-lg rounded-3xl bg-[var(--panel)] border border-[var(--border)] p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 bg-black/70 p-4 overflow-y-auto" onClick={closeDayModal}>
+          <div className="w-full max-w-lg rounded-3xl bg-[var(--panel)] border border-[var(--border)] p-6 mx-auto mt-6 mb-10 max-h-[90svh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <div className="text-xs tracking-[0.3em] font-bold text-[var(--muted)]">GÜNLÜK ETKİNLİKLER</div>
@@ -1009,8 +1009,8 @@ export default function Home({ onLogout }) {
       )}
 
       {showCategoryPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-4xl rounded-3xl bg-[var(--panel)] border border-[var(--border)] p-6">
+        <div className="fixed inset-0 z-50 bg-black/70 p-4 overflow-y-auto">
+          <div className="w-full max-w-4xl rounded-3xl bg-[var(--panel)] border border-[var(--border)] p-6 mx-auto mt-6 mb-10 max-h-[90svh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <div>
                 <div className="text-xs tracking-[0.3em] font-bold text-[var(--muted)]">KATEGORI SECIMI</div>
@@ -1107,8 +1107,8 @@ export default function Home({ onLogout }) {
       )}
 
       {showProfileEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-3xl bg-[var(--panel)] border border-[var(--border)] p-6">
+        <div className="fixed inset-0 z-50 bg-black/70 p-4 overflow-y-auto">
+          <div className="w-full max-w-3xl max-h-[90svh] overflow-y-auto rounded-3xl bg-[var(--panel)] border border-[var(--border)] p-6 mx-auto mt-6 mb-10">
             <div className="flex items-center justify-between mb-5">
               <div>
                 <div className="text-xs tracking-[0.3em] font-bold text-[var(--muted)]">PROFIL AYARLARI</div>
