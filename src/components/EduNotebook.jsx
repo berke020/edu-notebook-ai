@@ -3414,6 +3414,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
                     </button>
                     <button onClick={() => removeSource(file.id)} disabled={isReadOnly} className="text-[var(--muted)] hover:text-[var(--danger)] transition-colors p-1 disabled:opacity-40"><XCircle size={16} /></button>
                   </div>
+                </div>
               </div>
               {previewSourceId === file.id && (
                 <div className="mt-2 p-3 rounded-xl bg-[var(--panel)] border border-[var(--border)] text-[10px] text-[var(--muted)]">
