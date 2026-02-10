@@ -73,6 +73,8 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
   const [currentSourceMeta, setCurrentSourceMeta] = useState({ names: [], ids: [] });
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [showTitleEditModal, setShowTitleEditModal] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(false);
+  const [isInteractionModalOpen, setIsInteractionModalOpen] = useState(false);
 
   const themeStyles = isDarkMode
     ? {
@@ -140,6 +142,23 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
       setIsSidebarOpen(false);
     }
   }, [isFocusMode]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 1023px)');
+    const update = () => setIsMobileView(mq.matches);
+    update();
+    if (mq.addEventListener) {
+      mq.addEventListener('change', update);
+      return () => mq.removeEventListener('change', update);
+    }
+    mq.addListener(update);
+    return () => mq.removeListener(update);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileView) setIsInteractionModalOpen(false);
+  }, [isMobileView]);
 
   const [sessionCategory, setSessionCategory] = useState(null);
   const categoryId = (projectCategory?.id || sessionCategory?.id || 'university');
@@ -1372,6 +1391,10 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
   setInteractionType(type);
   setIsInteractionLoading(true);
   setInteractionData(null);
+  if (isMobileView) {
+    setIsInteractionModalOpen(true);
+    setIsMobileToolsOpen(false);
+  }
   // State temizliği
   setUserQuizAnswers({}); setOpenAnswers({}); setEvaluations({});
   setCurrentCardIndex(0); setIsCardFlipped(false); setExamAnswers({}); setExamResult(null); setIsGradingExam(false);
@@ -2520,7 +2543,8 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
     reader.readAsDataURL(file);
   };
 
-
+  const currentToolLabel = interactionTools.find((tool) => tool.id === interactionType)?.label || 'Etkileşim';
+  const isMobileOverlay = isMobileView && isInteractionModalOpen;
 
   return (
     <div
@@ -2599,6 +2623,9 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
             </button>
           </div>
         </div>
+      )}
+      {isMobileOverlay && (
+        <div className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={() => setIsInteractionModalOpen(false)} />
       )}
       {/* --- LEFT SIDEBAR --- */}
       {!isFocusMode && (
@@ -3198,8 +3225,19 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
 
       {/* --- RIGHT SIDEBAR (Interaction) --- */}
       {!isFocusMode && (
-        <aside className={`flex flex-col bg-[var(--panel)] border border-[var(--border)] backdrop-blur-xl transition-all duration-300 rounded-3xl shadow-xl lg:h-full ${isMobileToolsOpen ? 'fixed inset-x-0 bottom-0 h-[75vh] z-50' : 'hidden lg:flex'} ${!isMobileToolsOpen ? (isInteractionExpanded ? 'w-[52vw] max-w-[980px]' : 'w-[30rem]') : 'w-full'}`}>
+        <aside className={`flex flex-col bg-[var(--panel)] border border-[var(--border)] backdrop-blur-xl transition-all duration-300 rounded-3xl shadow-xl lg:h-full
+          ${isMobileOverlay ? 'fixed inset-3 h-[92svh] z-50' : isMobileToolsOpen ? 'fixed inset-x-0 bottom-0 h-[75vh] z-50' : 'hidden lg:flex'}
+          ${!isMobileOverlay && !isMobileToolsOpen ? (isInteractionExpanded ? 'w-[52vw] max-w-[980px]' : 'w-[30rem]') : 'w-full'}`}>
+            {isMobileOverlay && (
+              <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
+                <div className="text-sm font-semibold">{currentToolLabel}</div>
+                <button onClick={() => setIsInteractionModalOpen(false)} className="px-3 py-1 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-xs text-[var(--muted)]">
+                  Kapat
+                </button>
+              </div>
+            )}
             {/* SAĞ PANEL İÇERİĞİ */}
+            <div className={isMobileOverlay ? 'hidden' : ''}>
              <div className="p-5 border-b border-[var(--border)]">
           <div className="flex items-center justify-between text-[var(--text)]">
             <div className="flex items-center gap-2 font-semibold"><Zap size={18} className="text-[var(--accent)]" /><span>Etkileşim</span></div>
@@ -3415,6 +3453,10 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
                         setCurrentSourceMeta({ names: meta.sourceNames, ids: meta.sourceIds || [] });
                       }
                       setIsInteractionLoading(false);
+                      if (isMobileView) {
+                        setIsInteractionModalOpen(true);
+                        setIsMobileToolsOpen(false);
+                      }
                     }}
                     className="w-full text-left p-3 rounded-xl border bg-[var(--panel-2)] border-[var(--border)] hover:border-[var(--accent-3)]"
                   >
@@ -3426,6 +3468,8 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
             )}
           </div>
         </div>
+        </div>
+        {(!isMobileView || isMobileOverlay) && (
         <div className="flex-1 overflow-y-auto p-5 relative">
           {isInteractionLoading ? <div className="text-center mt-10 text-[var(--muted)]">Hazırlanıyor...</div> : !interactionData ? <div className="text-center mt-10 text-[var(--muted)] text-xs">Bir araç seçin.</div> : (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -4579,6 +4623,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
             </div>
           )}
         </div>
+        )}
         </aside>
       )}
     </div>
