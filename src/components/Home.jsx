@@ -585,26 +585,27 @@ export default function Home({ onLogout }) {
           fontFamily: '"Space Grotesk", "Sora", sans-serif'
         }}
       >
-        <header className="flex items-center justify-between px-8 py-6">
-          <div className="flex items-center gap-3 text-[var(--accent)] font-bold text-xl" style={{ fontFamily: '"Fraunces", serif' }}>
-            <BookOpen size={26} />
-            EduNotebook
+        <header className="flex flex-col md:flex-row md:items-center justify-between px-4 md:px-8 py-4 md:py-6 gap-3 md:gap-4">
+          <div className="flex items-center gap-3 text-[var(--accent)] font-bold text-lg md:text-xl" style={{ fontFamily: '"Fraunces", serif' }}>
+            <BookOpen size={22} className="md:hidden" />
+            <BookOpen size={26} className="hidden md:block" />
+            <span className="truncate">EduNotebook</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto">
             {planLabel !== 'TEAM' && (
               <button
                 onClick={() => navigate('/#pricing')}
-                className="px-4 py-2 rounded-xl bg-[var(--panel)] border border-[var(--border)] text-sm text-[var(--muted)] hover:text-[var(--text)]"
+                className="px-3 py-2 md:px-4 rounded-xl bg-[var(--panel)] border border-[var(--border)] text-xs md:text-sm text-[var(--muted)] hover:text-[var(--text)] whitespace-nowrap"
               >
                 Planlar
               </button>
             )}
-            <button onClick={onLogout} className="px-4 py-2 rounded-xl bg-[var(--panel)] border border-[var(--border)] text-sm text-[var(--muted)] hover:text-[var(--text)]">
+            <button onClick={onLogout} className="px-3 py-2 md:px-4 rounded-xl bg-[var(--panel)] border border-[var(--border)] text-xs md:text-sm text-[var(--muted)] hover:text-[var(--text)] whitespace-nowrap">
               Çıkış
             </button>
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--panel)] border border-[var(--border)]">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--panel)] border border-[var(--border)] max-w-full">
               <User size={16} className="text-[var(--accent-3)]" />
-              <span className="text-sm">{profileName}</span>
+              <span className="text-xs md:text-sm truncate max-w-[120px] md:max-w-none">{profileName}</span>
             </div>
           </div>
         </header>
