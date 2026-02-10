@@ -2590,9 +2590,9 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
         <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setIsMobileSourcesOpen(false)} />
       )}
       {showHeaderMenu && (
-        <div className="fixed inset-0 z-50 md:hidden">
+        <div className="fixed inset-0 z-50 md:hidden flex items-start justify-center pt-20 px-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowHeaderMenu(false)} onTouchStart={() => setShowHeaderMenu(false)} />
-          <div className="absolute top-16 right-4 w-52 rounded-2xl bg-[var(--panel)] border border-[var(--border)] shadow-xl p-2" onClick={(e) => e.stopPropagation()}>
+          <div className="relative w-60 rounded-2xl bg-[var(--panel)] border border-[var(--border)] shadow-xl p-2" onClick={(e) => e.stopPropagation()}>
             {isOwner && (
               <button
                 onClick={() => { setShowShareModal(true); setShowHeaderMenu(false); }}
@@ -3226,7 +3226,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
       {/* --- RIGHT SIDEBAR (Interaction) --- */}
       {!isFocusMode && (
         <aside className={`flex flex-col bg-[var(--panel)] border border-[var(--border)] backdrop-blur-xl transition-all duration-300 rounded-3xl shadow-xl lg:h-full
-          ${isMobileOverlay ? 'fixed inset-3 h-[92svh] z-50' : isMobileToolsOpen ? 'fixed inset-x-0 bottom-0 h-[75vh] z-50' : 'hidden lg:flex'}
+          ${isMobileOverlay ? 'fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[94vw] h-[90svh] z-50' : isMobileToolsOpen ? 'fixed inset-x-0 bottom-0 h-[75vh] z-50' : 'hidden lg:flex'}
           ${!isMobileOverlay && !isMobileToolsOpen ? (isInteractionExpanded ? 'w-[52vw] max-w-[980px]' : 'w-[30rem]') : 'w-full'}`}>
             {isMobileOverlay && (
               <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">

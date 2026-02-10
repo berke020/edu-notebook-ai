@@ -975,7 +975,7 @@ export default function Home({ onLogout }) {
       </div>
 
       {selectedDay && (
-        <div className="fixed inset-0 z-50 bg-black/70 p-4 overflow-y-auto" onClick={closeDayModal}>
+        <div className="fixed inset-0 z-50 bg-black/70 p-4 overflow-y-auto flex items-start justify-center" onClick={closeDayModal}>
           <div className="w-full max-w-lg rounded-3xl bg-[var(--panel)] border border-[var(--border)] p-6 mx-auto mt-6 mb-10 max-h-[90svh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -1009,7 +1009,7 @@ export default function Home({ onLogout }) {
       )}
 
       {showCategoryPicker && (
-        <div className="fixed inset-0 z-50 bg-black/70 p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/70 p-4 overflow-y-auto flex items-start justify-center">
           <div className="w-full max-w-4xl rounded-3xl bg-[var(--panel)] border border-[var(--border)] p-6 mx-auto mt-6 mb-10 max-h-[90svh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <div>
@@ -1107,7 +1107,7 @@ export default function Home({ onLogout }) {
       )}
 
       {showProfileEdit && (
-        <div className="fixed inset-0 z-50 bg-black/70 p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/70 p-4 overflow-y-auto flex items-start justify-center">
           <div className="w-full max-w-3xl max-h-[90svh] overflow-y-auto rounded-3xl bg-[var(--panel)] border border-[var(--border)] p-6 mx-auto mt-6 mb-10">
             <div className="flex items-center justify-between mb-5">
               <div>
