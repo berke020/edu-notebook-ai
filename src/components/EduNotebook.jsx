@@ -3074,13 +3074,12 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
 
   return (
     <div
-      className={`flex min-h-[100svh] lg:h-screen lg:min-h-0 overflow-hidden transition-colors duration-300 text-[var(--text)] flex-col lg:flex-row ${isFocusMode ? 'p-0 gap-0' : 'p-3 lg:p-5 gap-3 lg:gap-5'}`}
+      className={`flex h-[calc(var(--vh,1vh)*100)] overflow-hidden transition-colors duration-300 text-[var(--text)] flex-col lg:flex-row ${isFocusMode ? 'p-0 gap-0' : 'p-3 lg:p-5 gap-3 lg:gap-5'}`}
       style={{
         ...themeStyles,
         backgroundColor: 'var(--bg)',
         backgroundImage: 'var(--bg-grad)',
-        fontFamily: '"Space Grotesk", "Sora", sans-serif',
-        minHeight: 'calc(var(--vh, 1vh) * 100)'
+        fontFamily: '"Space Grotesk", "Sora", sans-serif'
       }}
     >
       {accessDenied && (
@@ -3184,7 +3183,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
       {/* --- LEFT SIDEBAR --- */}
       {!isFocusMode && (
         <aside
-          className={`transition-all duration-300 ease-in-out flex flex-col backdrop-blur-xl shadow-xl bg-[var(--panel)] border border-[var(--border)]
+          className={`transition-all duration-300 ease-in-out flex flex-col min-h-0 backdrop-blur-xl shadow-xl bg-[var(--panel)] border border-[var(--border)]
           ${isMobileSourcesOpen ? 'fixed inset-x-3 bottom-4 h-[78vh] z-50 rounded-3xl' : 'hidden'}
           lg:static lg:flex lg:rounded-3xl lg:z-auto lg:h-full
           ${isSidebarOpen ? 'lg:w-80 lg:translate-x-0' : 'lg:w-0 lg:-translate-x-full lg:opacity-0 lg:overflow-hidden'}
@@ -3203,7 +3202,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
             <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hidden lg:block">Kaynaklar</div>
           </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-2">
               {[
@@ -3456,7 +3455,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
       )}
 
       {/* --- MAIN AREA --- */}
-      <main className={`flex-1 flex flex-col min-w-0 relative overflow-hidden bg-[var(--panel)] lg:h-full ${isFocusMode ? 'rounded-none border-0 shadow-none' : 'rounded-3xl border border-[var(--border)] shadow-xl'}`}>
+      <main className={`flex-1 min-h-0 flex flex-col min-w-0 relative overflow-hidden bg-[var(--panel)] lg:h-full ${isFocusMode ? 'rounded-none border-0 shadow-none' : 'rounded-3xl border border-[var(--border)] shadow-xl'}`}>
         <header className="h-16 border-b flex items-center justify-between px-5 z-10 bg-[var(--panel)] border-[var(--border)] backdrop-blur-xl">
           <div className="flex items-center gap-3 overflow-hidden flex-1">
             {!isFocusMode && (
@@ -3563,7 +3562,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
             const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
             setShouldAutoScroll(distanceFromBottom < 120);
           }}
-          className="flex-1 overflow-y-auto p-6 space-y-6 bg-[var(--panel)]"
+          className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6 bg-[var(--panel)]"
           style={{ overflowAnchor: 'none' }}
         >
           {resumeHint && (
@@ -3905,7 +3904,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
 
       {/* --- RIGHT SIDEBAR (Interaction) --- */}
       {!isFocusMode && (
-        <aside className={`flex flex-col bg-[var(--panel)] border border-[var(--border)] backdrop-blur-xl transition-all duration-300 rounded-3xl shadow-xl lg:h-full
+        <aside className={`flex flex-col min-h-0 bg-[var(--panel)] border border-[var(--border)] backdrop-blur-xl transition-all duration-300 rounded-3xl shadow-xl lg:h-full
           ${isMobileOverlay ? 'fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[94vw] h-[90svh] z-50' : isMobileToolsOpen ? 'fixed inset-x-0 bottom-0 h-[75vh] z-50' : 'hidden lg:flex'}
           ${!isMobileOverlay && !isMobileToolsOpen ? (isInteractionExpanded ? 'w-[52vw] max-w-[980px]' : 'w-[30rem]') : 'w-full'}`}>
             {isMobileOverlay && (
@@ -4201,7 +4200,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
         </div>
         </div>
         {(!isMobileView || isMobileOverlay) && (
-        <div className="flex-1 overflow-y-auto p-5 relative">
+        <div className="flex-1 min-h-0 overflow-y-auto p-5 relative">
           {isInteractionLoading ? <div className="text-center mt-10 text-[var(--muted)]">Hazırlanıyor...</div> : !interactionData ? <div className="text-center mt-10 text-[var(--muted)] text-xs">Bir araç seçin.</div> : (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
               {interactionData && (
