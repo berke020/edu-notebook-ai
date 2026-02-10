@@ -3329,7 +3329,8 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
           </div>
           <div className="space-y-2">
               {visibleSources.map(file => (
-              <div id={`source-item-${file.docId || file.id}`} key={file.id} className="p-3 rounded-xl border text-sm group bg-[var(--panel-2)] border-[var(--border)]">
+              <React.Fragment key={file.id}>
+              <div id={`source-item-${file.docId || file.id}`} className="p-3 rounded-xl border text-sm group bg-[var(--panel-2)] border-[var(--border)]">
                   <div className="flex items-center justify-between gap-3 overflow-hidden">
                   <div className="flex items-center gap-3 overflow-hidden">
                   <label className="flex items-center">
@@ -3425,6 +3426,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
                   )}
                 </div>
               )}
+              </React.Fragment>
               ))}
           </div>
           <div className="mt-4">
