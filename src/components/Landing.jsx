@@ -18,17 +18,45 @@ export default function Landing() {
     { title: 'Jüri / Tez', desc: 'Savunma modları, agresif soru simülasyonu ve rol-play.', icon: Users }
   ];
 
+  const proofBadges = [
+    'Kampüs Kulübü',
+    'Atölye Stüdyosu',
+    'Araştırma Grubu',
+    'Lise Takımı'
+  ];
+
+  const successStories = [
+    {
+      title: 'YKS Hızlı Tekrar',
+      desc: 'Örnek akış: 1 haftada 6 konu için özet + quiz planı, her gün 25 dk tekrar.',
+      icon: Sparkles
+    },
+    {
+      title: 'Jüriye Hazırlık',
+      desc: 'Örnek akış: Savunma modunda 4 hoca personası ve haftalık eleştiri takibi.',
+      icon: Shield
+    },
+    {
+      title: 'Akademik Yazım',
+      desc: 'Örnek akış: Makale taslağı + kaynakça + kavram haritası ile düzenli yazım.',
+      icon: Layers
+    }
+  ];
+
   const plans = [
-    { name: 'BASIC', price: 'Ücretsiz', desc: 'Yeni başlayanlar için temel kullanım.', items: ['Sınırlı günlük etkileşim', 'Temel özet / quiz', 'Topluluk notları'] },
-    { name: 'PRO', price: '₺249 / ay', desc: 'Yoğun çalışma yapanlar için.', items: ['Sınırsız etkileşim', 'Gelişmiş araçlar', 'Öncelikli işlem', 'Kişisel profil'], annual: '₺199 / ay (yıllık)' },
-    { name: 'TEAM', price: '₺999 / ay', desc: 'Okul / ekipler için ortak çalışma.', items: ['Paylaşımlı projeler', 'Yönetici paneli', 'Özel entegrasyonlar'], annual: '₺799 / ay (yıllık)' }
+    { name: 'BASIC', price: 'Ücretsiz', desc: 'Yeni başlayanlar için temel kullanım.', forWho: 'Bireysel öğrenciler & denemek isteyenler', items: ['Sınırlı günlük etkileşim', 'Temel özet / quiz', 'Topluluk notları'] },
+    { name: 'PRO', price: '₺249 / ay', desc: 'Yoğun çalışma yapanlar için.', forWho: 'Lise/Üniversite yoğunluğu yüksek kullanıcılar', items: ['Sınırsız etkileşim', 'Gelişmiş araçlar', 'Öncelikli işlem', 'Kişisel profil'], annual: '₺199 / ay (yıllık)' },
+    { name: 'TEAM', price: '₺999 / ay', desc: 'Okul / ekipler için ortak çalışma.', forWho: 'Okullar, atölyeler, ekipler', items: ['Paylaşımlı projeler', 'Yönetici paneli', 'Özel entegrasyonlar'], annual: '₺799 / ay (yıllık)' }
   ];
 
   const faqs = [
-    { q: 'Kaynak dışında cevap verir mi?', a: 'Hayır. Sistem sadece yüklediğiniz içeriklerle çalışır.' },
+    { q: 'Kurulum kaç dakika sürer?', a: 'Hesap açıp ilk kaynaklarını yüklemen 2-3 dakika sürer. Oda otomatik hazır olur.' },
+    { q: 'Verilerim güvende mi?', a: 'Kaynaklar sadece senin çalışma odalarında kullanılır. İstersen tek tek paylaşım yetkisi verebilirsin.' },
+    { q: 'Kaynak dışında cevap verir mi?', a: 'Hayır. Sistem yalnızca yüklediğiniz içeriklerle çalışır.' },
     { q: 'Hangi dosyalar yüklenebilir?', a: 'PDF, DOCX, TXT, görsel, ses, video ve web URL desteklenir. Ayrıca kopyalanan metni kaynak olarak ekleyebilirsin.' },
     { q: 'Kategori değiştirebilir miyim?', a: 'Evet, her proje odasında kategoriye göre araçlar güncellenir.' },
-    { q: 'Jüri ve tez modlarında nasıl çalışır?', a: 'Kişiselleştirilebilir persona ve savunma senaryolarıyla çalışır.' }
+    { q: 'Jüri ve tez modlarında nasıl çalışır?', a: 'Kişiselleştirilebilir persona ve savunma senaryolarıyla çalışır.' },
+    { q: 'Aboneliğimi istediğim zaman iptal edebilir miyim?', a: 'Evet, dilediğin zaman iptal edebilirsin. Ücretli planın dönem sonuna kadar devam eder.' }
   ];
 
   const mockupSvg = (
@@ -79,9 +107,10 @@ export default function Landing() {
           EduNotebook
         </div>
         <div className="flex items-center gap-3">
+          <a href="#tour" className="text-sm text-[#9AA4B2] hover:text-white">Ürün Turu</a>
           <a href="#pricing" className="text-sm text-[#9AA4B2] hover:text-white">Ücretlendirme</a>
           <a href="#faq" className="text-sm text-[#9AA4B2] hover:text-white">S.S.S</a>
-          <a href="/auth" className="px-4 py-2 rounded-xl bg-[rgba(18,24,38,0.86)] border border-[rgba(255,255,255,0.08)] text-sm">Giriş / Kayıt</a>
+          <a href="/auth" className="px-4 py-2 rounded-xl bg-[#F5B84B] text-[#1b1b1b] text-sm font-semibold">Ücretsiz Başla</a>
         </div>
       </header>
 
@@ -90,19 +119,26 @@ export default function Landing() {
           <div className="col-span-12 lg:col-span-7">
             <div className="text-xs tracking-[0.3em] font-bold text-[#9AA4B2] mb-4">EĞİTİM YOLDAŞI</div>
             <h1 className="text-4xl md:text-5xl font-bold mb-4" style={{ fontFamily: '"Fraunces", serif' }}>
-              Sadece sizin kaynaklarınızla çalışan yapay zeka çalışma odası.
+              Öğrenciler, akademisyenler ve ekipler için kaynak odaklı yapay zeka çalışma odası.
             </h1>
             <p className="text-sm text-[#9AA4B2] mb-6 max-w-2xl">
               EduNotebook; özet, quiz, kavram haritası ve özel öğrenme modlarını tek panelde birleştirir.
-              İnternet araştırması yapmaz, yalnızca yüklediğiniz kaynakları kullanır.
+              İnternetten cevap üretmez, yalnızca yüklediğiniz kaynaklara dayanır.
             </p>
             <div className="flex flex-wrap gap-3">
               <a href="/auth" className="px-6 py-3 rounded-2xl bg-[#F5B84B] text-[#1b1b1b] font-semibold flex items-center gap-2 hover:brightness-110">
                 Hemen Başla <ArrowRight size={18} />
               </a>
-              <a href="#features" className="px-6 py-3 rounded-2xl bg-[rgba(10,14,20,0.9)] border border-[rgba(255,255,255,0.08)] text-sm">
-                Özelliklere Bak
+              <a href="#tour" className="px-6 py-3 rounded-2xl bg-[rgba(10,14,20,0.9)] border border-[rgba(255,255,255,0.08)] text-sm">
+                1 Dakikalık Turu İzle
               </a>
+            </div>
+            <div className="mt-6 flex flex-wrap items-center gap-3 text-[10px] uppercase tracking-[0.3em] text-[#9AA4B2]">
+              <span>Kaynak Odaklı</span>
+              <span>•</span>
+              <span>YKS / Üniversite / Jüri</span>
+              <span>•</span>
+              <span>Paylaşımlı Oda</span>
             </div>
           </div>
           <div className="col-span-12 lg:col-span-5">
@@ -120,6 +156,35 @@ export default function Landing() {
           </div>
         </section>
 
+        <section className="py-6">
+          <div className="grid grid-cols-12 gap-4">
+            {[
+              { label: 'Kaynak Odaklı Öğrenme', desc: 'Sadece yüklenen belgelerle ilerle.' },
+              { label: 'Kategoriye Özel Akış', desc: 'Lise, üniversite, jüri, tez.' },
+              { label: 'Paylaşılabilir Oda', desc: 'Rol bazlı paylaşım ve takip.' }
+            ].map((item) => (
+              <div key={item.label} className="col-span-12 md:col-span-4 p-4 rounded-2xl bg-[rgba(10,14,20,0.9)] border border-[rgba(255,255,255,0.08)]">
+                <div className="text-sm font-semibold">{item.label}</div>
+                <div className="text-xs text-[#9AA4B2] mt-2">{item.desc}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-[10px] uppercase tracking-[0.3em] text-[#9AA4B2]">
+            <span>ERKEN ERİŞİM TOPLULUĞU</span>
+            <span>•</span>
+            <span>ATÖLYE VE KULÜPLER</span>
+            <span>•</span>
+            <span>ÖĞRETMEN & AKADEMİSYEN</span>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {proofBadges.map((badge) => (
+              <span key={badge} className="text-xs px-3 py-2 rounded-full bg-[rgba(18,24,38,0.86)] border border-[rgba(255,255,255,0.08)] text-[#9AA4B2]">
+                {badge}
+              </span>
+            ))}
+          </div>
+        </section>
+
         <section id="features" className="py-10">
           <div className="grid grid-cols-12 gap-6">
             {features.map((f) => {
@@ -133,6 +198,14 @@ export default function Landing() {
               );
             })}
           </div>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <a href="/auth" className="px-6 py-3 rounded-2xl bg-[#F5B84B] text-[#1b1b1b] font-semibold inline-flex items-center gap-2">
+              Ücretsiz Dene <ArrowRight size={16} />
+            </a>
+            <a href="#pricing" className="px-6 py-3 rounded-2xl bg-[rgba(10,14,20,0.9)] border border-[rgba(255,255,255,0.08)] text-sm">
+              Planları Gör
+            </a>
+          </div>
         </section>
 
         <section className="py-10">
@@ -141,7 +214,7 @@ export default function Landing() {
               <div className="text-xs tracking-[0.3em] font-bold text-[#9AA4B2] mb-4">ÜRÜN GÖRÜNÜMÜ</div>
               <h2 className="text-2xl font-semibold mb-3">Gerçek çalışma alanını gör.</h2>
               <p className="text-sm text-[#9AA4B2] mb-6">
-                Aşağıdaki görsel uygulamanın gerçek çalışma düzenini temsil eder. İstersen bunu kendi ekran görüntünle değiştirebilirsin.
+                EduNotebook’un gerçek arayüz düzeni burada. Canlı çalışma odasına girerek aynı düzeni deneyimleyebilirsin.
               </p>
               <a href="/auth" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#F5B84B] text-[#1b1b1b] text-sm font-semibold">
                 Uygulamayı Aç <ArrowRight size={14} />
@@ -157,7 +230,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <section className="py-10">
+        <section id="tour" className="py-10">
           <div className="text-xs tracking-[0.3em] font-bold text-[#9AA4B2] mb-4">MİNİ ÜRÜN TURU</div>
           <div className="grid grid-cols-12 gap-6">
             {[
@@ -171,6 +244,14 @@ export default function Landing() {
                 <div className="text-sm text-[#9AA4B2] mt-2">{step.desc}</div>
               </div>
             ))}
+          </div>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <a href="/auth" className="px-6 py-3 rounded-2xl bg-[#F5B84B] text-[#1b1b1b] font-semibold inline-flex items-center gap-2">
+              Demo ile Başla <ArrowRight size={16} />
+            </a>
+            <a href="#pricing" className="px-6 py-3 rounded-2xl bg-[rgba(10,14,20,0.9)] border border-[rgba(255,255,255,0.08)] text-sm">
+              Planları Gör
+            </a>
           </div>
         </section>
 
@@ -264,6 +345,19 @@ export default function Landing() {
         </section>
 
         <section className="py-10">
+          <div className="text-xs tracking-[0.3em] font-bold text-[#9AA4B2] mb-4">KISA BAŞARI HİKAYELERİ</div>
+          <div className="grid grid-cols-12 gap-6">
+            {successStories.map((story) => (
+              <div key={story.title} className="col-span-12 md:col-span-4 p-6 rounded-3xl bg-[rgba(18,24,38,0.86)] border border-[rgba(255,255,255,0.08)]">
+                <story.icon size={18} className="text-[#F5B84B]" />
+                <div className="text-base font-semibold mt-3">{story.title}</div>
+                <div className="text-sm text-[#9AA4B2] mt-2">{story.desc}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="py-10">
           <div className="grid grid-cols-12 gap-6">
             <div className="col-span-12 lg:col-span-6 p-6 rounded-3xl bg-[rgba(10,14,20,0.9)] border border-[rgba(255,255,255,0.08)]">
               <div className="text-xs tracking-[0.3em] font-bold text-[#9AA4B2] mb-3">NEDEN FARKLI?</div>
@@ -334,6 +428,7 @@ export default function Landing() {
                 <div className="text-3xl font-bold mt-2">{p.price}</div>
                 {p.annual && <div className="text-[10px] text-[#6EE7B7] mt-1">Yıllık plan: {p.annual}</div>}
                 <div className="text-sm text-[#9AA4B2] mt-2">{p.desc}</div>
+                <div className="text-[10px] text-[#9AA4B2] mt-1">Kimler için: {p.forWho}</div>
                 <div className="mt-4 space-y-2 text-sm">
                   {p.items.map((i) => (
                     <div key={i} className="flex items-start gap-2 text-[#9AA4B2]">
