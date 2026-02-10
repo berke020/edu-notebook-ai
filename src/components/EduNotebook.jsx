@@ -36,6 +36,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
   // UI State
   const [activeTab, setActiveTab] = useState('sources'); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobileSourcesOpen, setIsMobileSourcesOpen] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(!!initialFocusMode);
   
   // GÜNCELLEME BURADA: Varsayılan olarak TRUE (Dark Mode) yaptık.
@@ -133,6 +134,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
   useEffect(() => {
     if (isFocusMode) {
       setIsMobileToolsOpen(false);
+      setIsMobileSourcesOpen(false);
       setIsSidebarOpen(false);
     }
   }, [isFocusMode]);
@@ -2510,7 +2512,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
 
   return (
     <div
-      className={`flex h-screen overflow-hidden transition-colors duration-300 text-[var(--text)] ${isFocusMode ? 'p-0 gap-0' : 'p-5 gap-5'}`}
+      className={`flex h-screen overflow-hidden transition-colors duration-300 text-[var(--text)] flex-col lg:flex-row ${isFocusMode ? 'p-0 gap-0' : 'p-3 lg:p-5 gap-3 lg:gap-5'}`}
       style={{
         ...themeStyles,
         backgroundColor: 'var(--bg)',
@@ -2548,14 +2550,29 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
       {isMobileToolsOpen && (
         <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setIsMobileToolsOpen(false)} />
       )}
+      {isMobileSourcesOpen && (
+        <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setIsMobileSourcesOpen(false)} />
+      )}
       {/* --- LEFT SIDEBAR --- */}
       {!isFocusMode && (
-        <aside className={`transition-all duration-300 ease-in-out flex flex-col backdrop-blur-xl rounded-3xl shadow-xl ${isSidebarOpen ? 'w-80 translate-x-0' : 'w-0 -translate-x-full opacity-0 overflow-hidden'} bg-[var(--panel)] border border-[var(--border)]`}>
+        <aside
+          className={`transition-all duration-300 ease-in-out flex flex-col backdrop-blur-xl shadow-xl bg-[var(--panel)] border border-[var(--border)]
+          ${isMobileSourcesOpen ? 'fixed inset-x-3 bottom-4 h-[78vh] z-50 rounded-3xl' : 'hidden'}
+          lg:static lg:flex lg:rounded-3xl lg:z-auto
+          ${isSidebarOpen ? 'lg:w-80 lg:translate-x-0' : 'lg:w-0 lg:-translate-x-full lg:opacity-0 lg:overflow-hidden'}
+          w-full`}
+        >
           <div className="p-5 border-b border-[var(--border)] space-y-3">
             <button onClick={() => onBackHome && onBackHome()} className="flex items-center gap-2 text-[var(--accent)] font-bold text-lg" style={{ fontFamily: '"Fraunces", serif' }}>
               <BookOpen size={22} /> <span>EduNotebook</span>
             </button>
-            <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Kaynaklar</div>
+            <div className="flex items-center justify-between lg:hidden">
+              <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Kaynaklar</div>
+              <button onClick={() => setIsMobileSourcesOpen(false)} className="px-2 py-1 rounded-lg bg-[var(--panel-2)] border border-[var(--border)] text-[10px] text-[var(--muted)]">
+                Kapat
+              </button>
+            </div>
+            <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] hidden lg:block">Kaynaklar</div>
           </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -2844,6 +2861,14 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
             </div>
           )}
           <div className="flex items-center gap-2">
+            {!isFocusMode && (
+              <button
+                onClick={() => setIsMobileSourcesOpen(true)}
+                className="lg:hidden px-3 py-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-xs text-[var(--muted)] hover:text-[var(--text)]"
+              >
+                Kaynaklar
+              </button>
+            )}
             {isOwner && (
               <button
                 onClick={() => setShowShareModal(true)}
@@ -2947,9 +2972,16 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
           </div>
         </div>
 
-        <button onClick={() => setIsMobileToolsOpen(true)} className="lg:hidden fixed bottom-24 right-5 z-30 px-4 py-3 rounded-full bg-[var(--accent)] text-[#1b1b1b] font-semibold shadow-lg">
-          Araçlar
-        </button>
+        {!isFocusMode && (
+          <div className="lg:hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 bg-[var(--panel)] border border-[var(--border)] rounded-full px-3 py-2 shadow-lg">
+            <button onClick={() => setIsMobileSourcesOpen(true)} className="px-4 py-2 rounded-full bg-[var(--panel-2)] border border-[var(--border)] text-xs text-[var(--muted)]">
+              Kaynaklar
+            </button>
+            <button onClick={() => setIsMobileToolsOpen(true)} className="px-4 py-2 rounded-full bg-[var(--accent)] text-[#1b1b1b] text-xs font-semibold">
+              Araçlar
+            </button>
+          </div>
+        )}
       </main>
 
       {categoryId === 'primary' && (
