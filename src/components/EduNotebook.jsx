@@ -4,7 +4,7 @@ import {
   MessageSquare, Sun, Moon, Send, Bot, Zap, CheckCircle,
   AlertCircle, ChevronLeft, ChevronRight, Layers, List,
   RotateCw, GraduationCap, Clock, History, Plus, Edit2, Check, X, Info,
-  Brain, Link2, Columns2, Maximize2, Minimize2, Mic, ArrowRight, Video, Search, Tag, Share2
+  Brain, Link2, Columns2, Maximize2, Minimize2, Mic, ArrowRight, Video, Search, Tag, Share2, MoreVertical
 } from 'lucide-react';
 
 // Mevcut import satırını güncelle:
@@ -71,6 +71,8 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
   const [shareAccessLogs, setShareAccessLogs] = useState([]);
   const [showExportModal, setShowExportModal] = useState(false);
   const [currentSourceMeta, setCurrentSourceMeta] = useState({ names: [], ids: [] });
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const [showTitleEditModal, setShowTitleEditModal] = useState(false);
 
   const themeStyles = isDarkMode
     ? {
@@ -736,6 +738,15 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
     setIsEditingTitle(true);
   };
 
+  const openTitleEditModal = () => {
+    setTempTitle(currentTitle);
+    setShowTitleEditModal(true);
+  };
+
+  const cancelTitleModal = () => {
+    setShowTitleEditModal(false);
+  };
+
   const saveTitle = async () => {
     if (!tempTitle.trim() || !sessionId) {
         setIsEditingTitle(false);
@@ -752,6 +763,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
         setChatHistory(prev => prev.map(item => item.id === sessionId ? { ...item, title: tempTitle } : item));
     }
     setIsEditingTitle(false);
+    setShowTitleEditModal(false);
   };
 
   const cancelEditingTitle = () => {
@@ -2553,6 +2565,9 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
       {isMobileSourcesOpen && (
         <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setIsMobileSourcesOpen(false)} />
       )}
+      {showHeaderMenu && (
+        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setShowHeaderMenu(false)} />
+      )}
       {/* --- LEFT SIDEBAR --- */}
       {!isFocusMode && (
         <aside
@@ -2829,7 +2844,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
                 <Bot className="text-[var(--accent-3)] flex-shrink-0" size={20}/> 
                 
                 {isEditingTitle ? (
-                    <div className="flex items-center gap-1 w-full max-w-md animate-in fade-in slide-in-from-left-2 duration-200">
+                    <div className="hidden md:flex items-center gap-1 w-full max-w-md animate-in fade-in slide-in-from-left-2 duration-200">
                         <input 
                             autoFocus
                             value={tempTitle}
@@ -2841,9 +2856,9 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
                         <button onClick={cancelEditingTitle} className="p-1 text-[var(--danger)] hover:bg-[var(--panel-2)] rounded"><X size={16}/></button>
                     </div>
                 ) : (
-                    <div className="flex items-center gap-2 group cursor-pointer" onClick={() => sessionId && startEditingTitle()}>
-                        <h1 className="font-semibold text-sm md:text-base truncate">{currentTitle}</h1>
-                        {sessionId && <Edit2 size={14} className="text-[var(--muted)] opacity-0 group-hover:opacity-100 transition-opacity" />}
+                    <div className="flex items-center gap-2 group md:cursor-pointer pointer-events-none md:pointer-events-auto" onClick={() => sessionId && startEditingTitle()}>
+                        <h1 className="font-semibold text-sm md:text-base truncate max-w-[220px] md:max-w-none">{currentTitle}</h1>
+                        {sessionId && <Edit2 size={14} className="text-[var(--muted)] opacity-0 group-hover:opacity-100 transition-opacity hidden md:inline-flex" />}
                     </div>
                 )}
             </div>
@@ -2870,7 +2885,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
               <button
                 onClick={() => setShowShareModal(true)}
                 disabled={!sessionId}
-                className="px-3 py-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-xs text-[var(--muted)] hover:text-[var(--text)] disabled:opacity-50"
+                className="px-3 py-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-xs text-[var(--muted)] hover:text-[var(--text)] disabled:opacity-50 hidden md:inline-flex"
               >
                 <div className="flex items-center gap-2">
                   <Share2 size={14} />
@@ -2880,7 +2895,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
             )}
             <button
               onClick={() => setIsFocusMode(prev => !prev)}
-              className="px-3 py-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-xs text-[var(--muted)] hover:text-[var(--text)]"
+              className="px-3 py-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-xs text-[var(--muted)] hover:text-[var(--text)] hidden md:inline-flex"
             >
               <div className="flex items-center gap-2">
                 {isFocusMode ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
@@ -2890,9 +2905,49 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
             {shareStatus && (
               <div className="text-[10px] text-[var(--muted)]">{shareStatus}</div>
             )}
-            <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2.5 rounded-full hover:bg-[var(--panel-2)] text-[var(--muted)] transition-colors flex-shrink-0">
+            <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2.5 rounded-full hover:bg-[var(--panel-2)] text-[var(--muted)] transition-colors flex-shrink-0 hidden md:inline-flex">
             {isDarkMode ? <Sun size={20} className="text-[var(--accent)]" /> : <Moon size={20} />}
             </button>
+            <div className="relative md:hidden">
+              <button
+                onClick={() => setShowHeaderMenu(prev => !prev)}
+                className="p-2.5 rounded-full bg-[var(--panel-2)] border border-[var(--border)] text-[var(--muted)]"
+              >
+                <MoreVertical size={18} />
+              </button>
+              {showHeaderMenu && (
+                <div className="absolute right-0 mt-2 w-44 rounded-2xl bg-[var(--panel)] border border-[var(--border)] shadow-xl p-2 z-50">
+                  {isOwner && (
+                    <button
+                      onClick={() => { setShowShareModal(true); setShowHeaderMenu(false); }}
+                      disabled={!sessionId}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-[var(--text)] hover:bg-[var(--panel-2)]"
+                    >
+                      <Share2 size={14} /> Paylaş
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { setShowHeaderMenu(false); sessionId && openTitleEditModal(); }}
+                    disabled={!sessionId}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-[var(--text)] hover:bg-[var(--panel-2)]"
+                  >
+                    <Edit2 size={14} /> Oda Adını Düzenle
+                  </button>
+                  <button
+                    onClick={() => { setIsFocusMode(prev => !prev); setShowHeaderMenu(false); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-[var(--text)] hover:bg-[var(--panel-2)]"
+                  >
+                    {isFocusMode ? <Minimize2 size={14} /> : <Maximize2 size={14} />} {isFocusMode ? 'Odaktan Çık' : 'Odak Modu'}
+                  </button>
+                  <button
+                    onClick={() => { setIsDarkMode(!isDarkMode); setShowHeaderMenu(false); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-[var(--text)] hover:bg-[var(--panel-2)]"
+                  >
+                    {isDarkMode ? <Sun size={14} /> : <Moon size={14} />} Tema
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
@@ -3058,6 +3113,32 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showTitleEditModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="w-full max-w-sm rounded-3xl bg-[var(--panel)] border border-[var(--border)] p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-semibold">Oda Adını Düzenle</div>
+              <button onClick={cancelTitleModal} className="px-3 py-1 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-xs">Kapat</button>
+            </div>
+            <div className="space-y-3">
+              <input
+                value={tempTitle}
+                onChange={(e) => setTempTitle(e.target.value)}
+                placeholder="Yeni oda adı"
+                className="w-full px-3 py-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-sm"
+              />
+              <div className="flex items-center gap-2">
+                <button onClick={saveTitle} className="flex-1 px-3 py-2 rounded-xl bg-[var(--accent)] text-[#1b1b1b] text-xs font-semibold">
+                  Kaydet
+                </button>
+                <button onClick={cancelTitleModal} className="flex-1 px-3 py-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-xs text-[var(--muted)]">
+                  Vazgeç
+                </button>
               </div>
             </div>
           </div>
