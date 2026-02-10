@@ -240,6 +240,8 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
   const [interactionData, setInteractionData] = useState(null);
   const [interactionHistory, setInteractionHistory] = useState([]);
   const [interactionHistoryLoaded, setInteractionHistoryLoaded] = useState(false);
+  const [interactionTagDraft, setInteractionTagDraft] = useState('');
+  const [currentInteractionMeta, setCurrentInteractionMeta] = useState(null);
   const [presentationTheme, setPresentationTheme] = useState('midnight');
   const [presentationSpeaker, setPresentationSpeaker] = useState('');
   const [presentationDate, setPresentationDate] = useState('');
@@ -1037,6 +1039,23 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
   const getSelectedDocIds = () =>
     getSelectedSources().map(s => s.docId || s.id).filter(Boolean);
 
+  const safeParseJson = (raw) => {
+    if (!raw) return null;
+    if (typeof raw === 'object') return raw;
+    try {
+      return JSON.parse(raw);
+    } catch {}
+    const objMatch = raw.match(/\{[\s\S]*\}/);
+    if (objMatch) {
+      try { return JSON.parse(objMatch[0]); } catch {}
+    }
+    const arrMatch = raw.match(/\[[\s\S]*\]/);
+    if (arrMatch) {
+      try { return JSON.parse(arrMatch[0]); } catch {}
+    }
+    return null;
+  };
+
   const unwrapHistoryPayload = (payload) => {
     if (payload && typeof payload === 'object' && payload._data !== undefined) return payload._data;
     return payload;
@@ -1045,6 +1064,43 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
   const getHistoryMeta = (payload) => {
     if (payload && typeof payload === 'object' && payload._meta) return payload._meta;
     return null;
+  };
+
+  const getInteractionText = (data) => {
+    if (!data) return '';
+    if (typeof data === 'string') return data;
+    try {
+      return JSON.stringify(data, null, 2);
+    } catch {
+      return String(data);
+    }
+  };
+
+  const copyInteractionOutput = async () => {
+    const text = getInteractionText(interactionData);
+    if (!text) return;
+    await copyToClipboard(text);
+  };
+
+  const shareInteractionOutput = async () => {
+    const text = getInteractionText(interactionData);
+    if (!text) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: currentToolLabel, text });
+      } catch {}
+    } else {
+      await copyToClipboard(text);
+    }
+  };
+
+  const scrollToSource = (sourceId) => {
+    if (!sourceId) return;
+    if (isMobileView) setIsMobileSourcesOpen(true);
+    setTimeout(() => {
+      const el = document.getElementById(`source-item-${sourceId}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 180);
   };
 
   const toggleDictation = () => {
@@ -1730,7 +1786,13 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
       if (textTypes.has(type)) {
         setInteractionData(text);
       } else {
-        finalPayload = JSON.parse(text);
+        const parsed = safeParseJson(text);
+        if (!parsed) {
+          setInteractionData("Çıktı okunamadı. Lütfen tekrar deneyin.");
+          setIsInteractionLoading(false);
+          return;
+        }
+        finalPayload = parsed;
         if (type === 'PRESENTATION' && finalPayload?.slides?.length) {
           finalPayload = {
             ...finalPayload,
@@ -1746,16 +1808,24 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
       const preview = typeof finalPayload === 'string'
         ? finalPayload.slice(0, 120)
         : (finalPayload?.title || finalPayload?.examTitle || finalPayload?.question || finalPayload?.conceptA || finalPayload?.items?.[0]?.mnemonic || 'Çıktı');
+      const nextVersion = interactionHistory.filter(item => item.tool_id === type).length + 1;
+      const meta = {
+        sourceIds: selectedDocIds,
+        sourceNames: selectedSources.map(s => s.name),
+        createdAt: new Date().toISOString(),
+        version: nextVersion,
+        tag: interactionTagDraft.trim() || null,
+        template: outputTemplate
+      };
+      setCurrentInteractionMeta(meta);
+      setInteractionTagDraft('');
       await saveInteractionHistory({
         sid: currentSessionId,
         toolId: type,
         toolLabel: getToolLabel(type),
         payload: finalPayload,
         preview,
-        meta: {
-          sourceIds: selectedDocIds,
-          sourceNames: selectedSources.map(s => s.name)
-        }
+        meta
       });
       if (['DEFENSE','STRESS_TEST','PITCH','HARSH_Q','METHODOLOGY','CONCEPT_EXPLAIN'].includes(type)) {
         const memText = typeof finalPayload === 'string'
@@ -1790,7 +1860,10 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
       if (!parts) parts = [{ text: prompt }];
       const payload = { contents: [{ role: "user", parts }], systemInstruction: { parts: [{ text: systemInstructionText }] }, generationConfig: { responseMimeType: "application/json" } };
       const result = await apiCall('generateContent', payload);
-      setEvaluations(prev => ({ ...prev, [questionId]: JSON.parse(result.candidates?.[0]?.content?.parts?.[0]?.text) }));
+      const parsed = safeParseJson(result.candidates?.[0]?.content?.parts?.[0]?.text);
+      if (parsed) {
+        setEvaluations(prev => ({ ...prev, [questionId]: parsed }));
+      }
     } catch (error) { console.error(error); } finally { setEvaluatingIds(prev => { const next = new Set(prev); next.delete(questionId); return next; }); }
   };
 
@@ -1840,7 +1913,8 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
       };
       
       const result = await apiCall('generateContent', payload);
-      setExamResult(JSON.parse(result.candidates?.[0]?.content?.parts?.[0]?.text));
+      const parsed = safeParseJson(result.candidates?.[0]?.content?.parts?.[0]?.text);
+      if (parsed) setExamResult(parsed);
     } catch (error) { 
         alert("Sınav puanlanırken hata oluştu."); 
         console.error(error);
@@ -2015,7 +2089,10 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
   const presentationPacks = {
     focus: { label: 'Focus', theme: 'midnight', addCover: true },
     classic: { label: 'Classic', theme: 'ivory', addCover: true },
-    board: { label: 'Board', theme: 'slate', addCover: false }
+    board: { label: 'Board', theme: 'slate', addCover: false },
+    aurora: { label: 'Aurora', theme: 'midnight', addCover: true },
+    minimal: { label: 'Minimal', theme: 'ivory', addCover: false },
+    studio: { label: 'Studio', theme: 'slate', addCover: true }
   };
 
   const applyPresentationPack = (key) => {
@@ -2158,6 +2235,26 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
     meeting: {
       label: 'Toplantı Özeti',
       slides: ['Gündem', 'Kararlar', 'Aksiyonlar', 'Riskler', 'Kapanış']
+    },
+    startup: {
+      label: 'Startup Pitch',
+      slides: ['Problem', 'Çözüm', 'Pazar', 'Ürün', 'İş Modeli', 'Takım', 'Kapanış']
+    },
+    research: {
+      label: 'Araştırma Raporu',
+      slides: ['Amaç', 'Literatür', 'Yöntem', 'Bulgular', 'Tartışma', 'Sonuç']
+    },
+    case: {
+      label: 'Vaka Analizi',
+      slides: ['Vaka Özeti', 'Sorunlar', 'Analiz', 'Alternatifler', 'Öneri', 'Sonuç']
+    },
+    training: {
+      label: 'Eğitim Atölyesi',
+      slides: ['Hedefler', 'Gündem', 'Uygulama', 'Örnekler', 'Değerlendirme', 'Kapanış']
+    },
+    report: {
+      label: 'Dönem Raporu',
+      slides: ['Özet', 'Başarılar', 'Riskler', 'Metrikler', 'Plan', 'Kapanış']
     }
   };
 
@@ -2576,6 +2673,52 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
   const displayedMessages = normalizedChatSearch
     ? messages.filter(m => (m.text || '').toLowerCase().includes(normalizedChatSearch))
     : messages;
+  const toolRecommendations = useMemo(() => {
+    const list = [];
+    const toolMap = new Map(interactionTools.map(t => [t.id, t]));
+    const add = (id, reason) => {
+      if (!toolMap.has(id)) return;
+      if (list.some(item => item.id === id)) return;
+      list.push({ ...toolMap.get(id), reason });
+    };
+    const nameBlob = sources.map(s => `${s.name || ''} ${s.originalName || ''}`).join(' ').toLowerCase();
+    const textBlob = sources.map(s => s.textContent || '').join(' ').toLowerCase();
+    const examLike = /(vize|final|sınav|test|quiz|deneme)/.test(nameBlob);
+    const formulaLike = /(formül|denklem|teorem|tanım)/.test(textBlob + nameBlob);
+
+    if (categoryId === 'primary') {
+      add('STORY', 'Masal gibi anlatım için');
+      add('ELI5', 'Basit anlatım için');
+      add('MINI_QUIZ', 'Hızlı öğrenme kontrolü');
+    }
+    if (categoryId === 'highschool') {
+      add('STUDY_NOTES', 'Sınav notu çıkar');
+      if (examLike) add('QUIZ_YKS', 'Test pratiği için');
+      if (formulaLike) add('MEMORIZE', 'Formül ezberi için');
+    }
+    if (categoryId === 'university') {
+      add('ACADEMIC_SUMMARY', 'Akademik özet için');
+      add('CONCEPT_MAP', 'Kavram ilişkileri için');
+      if (examLike) add('EXAM_SIM', 'Vize/Final provası');
+    }
+    if (categoryId === 'jury') {
+      add('PITCH', 'Sunum metni hazırlama');
+      add('DEFENSE', 'Zor sorulara hazırlık');
+    }
+    if (categoryId === 'thesis') {
+      add('METHODOLOGY', 'Metodoloji kontrolü');
+      add('HARSH_Q', 'Sert soru simülasyonu');
+    }
+    if (categoryId === 'meeting') {
+      add('MINUTES', 'Toplantı tutanağı');
+      add('ACTIONS', 'Aksiyon listesi');
+    }
+    if (sources.length > 2) {
+      add('SUMMARY', 'Çok kaynak varsa özetle');
+      add('ACADEMIC_SUMMARY', 'Akademik özetle');
+    }
+    return list.slice(0, 3);
+  }, [interactionTools, categoryId, sources]);
 
   const renderToolCard = (tool) => {
     const isFavorite = favoriteTools.includes(tool.id);
@@ -2835,7 +2978,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
           </div>
           <div className="space-y-2">
               {visibleSources.map(file => (
-              <div key={file.id} className="p-3 rounded-xl border text-sm group bg-[var(--panel-2)] border-[var(--border)]">
+              <div id={`source-item-${file.docId || file.id}`} key={file.id} className="p-3 rounded-xl border text-sm group bg-[var(--panel-2)] border-[var(--border)]">
                   <div className="flex items-center justify-between gap-3 overflow-hidden">
                   <div className="flex items-center gap-3 overflow-hidden">
                   <label className="flex items-center">
@@ -3394,6 +3537,35 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
               ))}
             </select>
           </div>
+          <div className="mt-3 p-3 rounded-2xl bg-[var(--panel-2)] border border-[var(--border)]">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] mb-2">Çıktı Etiketi</div>
+            <input
+              value={interactionTagDraft}
+              onChange={(e) => setInteractionTagDraft(e.target.value)}
+              placeholder="örn. Hafta-1, Prova, Özet"
+              className="w-full px-3 py-2 rounded-xl bg-[var(--panel)] border border-[var(--border)] text-xs"
+            />
+            <div className="text-[10px] text-[var(--muted)] mt-2">Bu etiket bir sonraki çıktıya eklenir.</div>
+          </div>
+          {toolRecommendations.length > 0 && (
+            <div className="mt-3 p-3 rounded-2xl bg-[var(--panel-2)] border border-[var(--border)]">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] mb-2">Akıllı Öneriler</div>
+              <div className="space-y-2">
+                {toolRecommendations.map((tool) => (
+                  <button
+                    key={tool.id}
+                    onClick={() => handleInteraction(tool.id)}
+                    className="w-full text-left p-2 rounded-xl bg-[var(--panel)] border border-[var(--border)] hover:border-[var(--accent-3)]"
+                  >
+                    <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text)]">
+                      <tool.icon size={12} /> {tool.label}
+                    </div>
+                    <div className="text-[10px] text-[var(--muted)] mt-1">{tool.reason}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {categoryId === 'primary' && (
             <div className="mt-3 p-3 rounded-2xl bg-[var(--panel-2)] border border-[var(--border)]">
               <div className="text-[10px] tracking-[0.3em] font-bold text-[var(--muted)] mb-2">ROZETLER</div>
@@ -3576,6 +3748,13 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
                       if (meta?.sourceNames?.length) {
                         setCurrentSourceMeta({ names: meta.sourceNames, ids: meta.sourceIds || [] });
                       }
+                      setCurrentInteractionMeta({
+                        ...(meta || {}),
+                        createdAt: meta?.createdAt || item.created_at || null,
+                        version: meta?.version || null,
+                        tag: meta?.tag || null,
+                        template: meta?.template || null
+                      });
                       setIsInteractionLoading(false);
                       if (isMobileView) {
                         setIsInteractionModalOpen(true);
@@ -3584,8 +3763,20 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
                     }}
                     className="w-full text-left p-3 rounded-xl border bg-[var(--panel-2)] border-[var(--border)] hover:border-[var(--accent-3)]"
                   >
-                    <div className="text-xs font-semibold text-[var(--text)]">{item.tool_label || item.tool_id}</div>
-                    <div className="text-[10px] text-[var(--muted)] truncate">{item.preview || 'Çıktı'}</div>
+                    {(() => {
+                      const meta = getHistoryMeta(item.payload);
+                      return (
+                        <>
+                          <div className="text-xs font-semibold text-[var(--text)]">{item.tool_label || item.tool_id}</div>
+                          <div className="flex flex-wrap items-center gap-2 text-[10px] text-[var(--muted)] mt-1">
+                            {meta?.version && <span>v{meta.version}</span>}
+                            {meta?.tag && <span>#{meta.tag}</span>}
+                            {item.created_at && <span>{new Date(item.created_at).toLocaleDateString('tr-TR')}</span>}
+                          </div>
+                          <div className="text-[10px] text-[var(--muted)] truncate mt-1">{item.preview || 'Çıktı'}</div>
+                        </>
+                      );
+                    })()}
                   </button>
                 ))}
               </div>
@@ -3597,9 +3788,53 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
         <div className="flex-1 overflow-y-auto p-5 relative">
           {isInteractionLoading ? <div className="text-center mt-10 text-[var(--muted)]">Hazırlanıyor...</div> : !interactionData ? <div className="text-center mt-10 text-[var(--muted)] text-xs">Bir araç seçin.</div> : (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {interactionData && (
+                <div className="mb-4 p-3 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-[10px] text-[var(--muted)]">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-full bg-[var(--panel)] border border-[var(--border)] text-[var(--text)]">
+                      {currentToolLabel}
+                    </span>
+                    {currentInteractionMeta?.version && (
+                      <span>Versiyon {currentInteractionMeta.version}</span>
+                    )}
+                    {currentInteractionMeta?.createdAt && (
+                      <span>{new Date(currentInteractionMeta.createdAt).toLocaleString('tr-TR')}</span>
+                    )}
+                    {currentInteractionMeta?.tag && (
+                      <span className="px-2 py-0.5 rounded-full bg-[var(--panel)] border border-[var(--border)] text-[var(--text)]">
+                        #{currentInteractionMeta.tag}
+                      </span>
+                    )}
+                    {currentInteractionMeta?.template && (
+                      <span>Şablon: {currentInteractionMeta.template}</span>
+                    )}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button onClick={copyInteractionOutput} className="px-3 py-1.5 rounded-lg bg-[var(--panel)] border border-[var(--border)] text-[10px]">Kopyala</button>
+                    <button onClick={shareInteractionOutput} className="px-3 py-1.5 rounded-lg bg-[var(--panel)] border border-[var(--border)] text-[10px]">Paylaş</button>
+                    <button onClick={() => printToPdf(getInteractionText(interactionData))} className="px-3 py-1.5 rounded-lg bg-[var(--panel)] border border-[var(--border)] text-[10px]">PDF</button>
+                    <button onClick={() => downloadTextFile('cikti.txt', getInteractionText(interactionData))} className="px-3 py-1.5 rounded-lg bg-[var(--panel)] border border-[var(--border)] text-[10px]">TXT</button>
+                  </div>
+                </div>
+              )}
               {currentSourceMeta?.names?.length > 0 && (
                 <div className="mb-4 p-3 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-[10px] text-[var(--muted)]">
-                  Kaynak İzleri: {currentSourceMeta.names.join(', ')}
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] mb-2">Kaynak İzleri</div>
+                  <div className="flex flex-wrap gap-2">
+                    {currentSourceMeta.names.map((name, idx) => {
+                      const fallback = sources.find(s => s.name === name);
+                      const sourceId = (currentSourceMeta.ids && currentSourceMeta.ids[idx]) || fallback?.docId || fallback?.id;
+                      return (
+                        <button
+                          key={`${name}-${idx}`}
+                          onClick={() => scrollToSource(sourceId)}
+                          className="px-2 py-1 rounded-full bg-[var(--panel)] border border-[var(--border)] text-[10px] text-[var(--text)] hover:border-[var(--accent-3)]"
+                        >
+                          {name}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
               {interactionType === 'SUMMARY' && renderTextBlock('KAYNAK ÖZETİ', interactionData)}
