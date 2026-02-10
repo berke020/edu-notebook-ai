@@ -87,6 +87,8 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
   const [chatSearch, setChatSearch] = useState('');
   const [favoriteTools, setFavoriteTools] = useState([]);
   const [isSavingTitle, setIsSavingTitle] = useState(false);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
 
   const themeStyles = isDarkMode
     ? {
@@ -166,6 +168,32 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
     }
     mq.addListener(update);
     return () => mq.removeListener(update);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const vv = window.visualViewport;
+    const update = () => {
+      const height = vv ? vv.height : window.innerHeight;
+      const offsetTop = vv?.offsetTop || 0;
+      const rawOffset = Math.max(0, window.innerHeight - height - offsetTop);
+      const open = rawOffset > 120;
+      setIsKeyboardOpen(open);
+      setKeyboardOffset(open ? rawOffset : 0);
+      try {
+        document.documentElement.style.setProperty('--vh', `${height * 0.01}px`);
+        document.documentElement.style.setProperty('--kb', `${open ? rawOffset : 0}px`);
+      } catch {}
+    };
+    update();
+    window.addEventListener('resize', update);
+    vv?.addEventListener('resize', update);
+    vv?.addEventListener('scroll', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      vv?.removeEventListener('resize', update);
+      vv?.removeEventListener('scroll', update);
+    };
   }, []);
 
   useEffect(() => {
@@ -3051,7 +3079,8 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
         ...themeStyles,
         backgroundColor: 'var(--bg)',
         backgroundImage: 'var(--bg-grad)',
-        fontFamily: '"Space Grotesk", "Sora", sans-serif'
+        fontFamily: '"Space Grotesk", "Sora", sans-serif',
+        minHeight: 'calc(var(--vh, 1vh) * 100)'
       }}
     >
       {accessDenied && (
@@ -3167,7 +3196,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
             </button>
             <div className="flex items-center justify-between lg:hidden">
               <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Kaynaklar</div>
-              <button onClick={() => setIsMobileSourcesOpen(false)} className="px-2 py-1 rounded-lg bg-[var(--panel-2)] border border-[var(--border)] text-[10px] text-[var(--muted)]">
+              <button onClick={() => setIsMobileSourcesOpen(false)} className="px-3 py-2 rounded-lg bg-[var(--panel-2)] border border-[var(--border)] text-[10px] text-[var(--muted)] min-h-10">
                 Kapat
               </button>
             </div>
@@ -3515,7 +3544,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
             <div className="relative md:hidden">
               <button
                 onClick={(e) => { e.stopPropagation(); setShowHeaderMenu(prev => !prev); }}
-                className="p-2.5 rounded-full bg-[var(--panel-2)] border border-[var(--border)] text-[var(--muted)]"
+                className="p-2.5 rounded-full bg-[var(--panel-2)] border border-[var(--border)] text-[var(--muted)] min-h-10 min-w-10"
               >
                 <MoreVertical size={18} />
               </button>
@@ -3601,7 +3630,10 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
           <div ref={chatEndRef} />
         </div>
 
-        <div className="p-4 border-t bg-[var(--panel)] border-[var(--border)] backdrop-blur-xl">
+        <div
+          className="p-4 border-t bg-[var(--panel)] border-[var(--border)] backdrop-blur-xl"
+          style={isMobileView ? { paddingBottom: `calc(env(safe-area-inset-bottom) + var(--kb, 0px))` } : undefined}
+        >
           <div className="max-w-3xl mx-auto mb-3 flex items-center justify-between text-[10px] text-[var(--muted)]">
             <div className="flex items-center gap-2">
               <Info size={12} className="text-[var(--accent-3)]" />
@@ -3641,7 +3673,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
           </div>
         </div>
 
-        {!isFocusMode && (
+        {!isFocusMode && !isKeyboardOpen && (
           <div className="lg:hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 bg-[var(--panel)] border border-[var(--border)] rounded-full px-3 py-2 shadow-lg">
             <button onClick={() => setIsMobileSourcesOpen(true)} className="px-4 py-2 rounded-full bg-[var(--panel-2)] border border-[var(--border)] text-xs text-[var(--muted)]">
               Kaynaklar
@@ -3876,7 +3908,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
             {isMobileOverlay && (
               <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
                 <div className="text-sm font-semibold">{currentToolLabel}</div>
-                <button onClick={() => setIsInteractionModalOpen(false)} className="px-3 py-1 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-xs text-[var(--muted)]">
+                <button onClick={() => setIsInteractionModalOpen(false)} className="px-3 py-2 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] text-xs text-[var(--muted)] min-h-10">
                   Kapat
                 </button>
               </div>

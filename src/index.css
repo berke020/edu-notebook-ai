@@ -8,6 +8,11 @@ html, body, #root {
   color: #E6E9EF;
 }
 
+:root {
+  --vh: 1vh;
+  --kb: 0px;
+}
+
 body {
   @apply antialiased;
   margin: 0;
