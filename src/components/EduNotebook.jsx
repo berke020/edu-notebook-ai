@@ -2936,9 +2936,13 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
           )}
           <div className="flex items-center gap-2">
             {!isFocusMode && (
-              <div className="lg:hidden flex items-center gap-2 text-[var(--accent)] font-semibold text-sm" style={{ fontFamily: '"Fraunces", serif' }}>
+              <button
+                onClick={() => onBackHome && onBackHome()}
+                className="lg:hidden flex items-center gap-2 text-[var(--accent)] font-semibold text-sm"
+                style={{ fontFamily: '"Fraunces", serif' }}
+              >
                 <BookOpen size={18} /> EduNotebook
-              </div>
+              </button>
             )}
             {isOwner && (
               <button
