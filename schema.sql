@@ -121,6 +121,58 @@ alter table room_shares add column if not exists max_views integer;
 alter table room_shares add column if not exists max_devices integer;
 alter table room_share_access add column if not exists device_id text;
 
+create table if not exists user_quota (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  daily_limit int default 40,
+  used_today int default 0,
+  last_reset date
+);
+
+create table if not exists usage_logs (
+  id bigint primary key generated always as identity,
+  user_id uuid references auth.users(id) on delete set null,
+  session_id bigint references chat_sessions(id) on delete set null,
+  tool_id text,
+  cached boolean default false,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create table if not exists audit_logs (
+  id bigint primary key generated always as identity,
+  user_id uuid references auth.users(id) on delete set null,
+  action text not null,
+  entity text,
+  entity_id text,
+  metadata jsonb,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create table if not exists interaction_cache (
+  id bigint primary key generated always as identity,
+  cache_key text unique not null,
+  user_id uuid references auth.users(id) on delete cascade,
+  session_id bigint references chat_sessions(id) on delete set null,
+  tool_id text,
+  template text,
+  payload jsonb,
+  meta jsonb,
+  expires_at timestamp with time zone,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table user_quota enable row level security;
+alter table usage_logs enable row level security;
+alter table audit_logs enable row level security;
+alter table interaction_cache enable row level security;
+
+create policy "User only" on user_quota for all using (auth.uid() = user_id);
+create policy "User only" on usage_logs for all using (auth.uid() = user_id);
+create policy "User only" on audit_logs for all using (auth.uid() = user_id);
+create policy "User only" on interaction_cache for all using (auth.uid() = user_id);
+
+alter table jury_videos add column if not exists storage_bucket text;
+alter table jury_videos add column if not exists file_path text;
+
 alter table room_share_access enable row level security;
 create policy "Herkese açık (Test için)" on room_share_access for all using (true);
 

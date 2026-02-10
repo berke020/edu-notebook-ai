@@ -77,6 +77,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
   const [sharePasswordInput, setSharePasswordInput] = useState('');
   const [sharePasswordError, setSharePasswordError] = useState('');
   const [pendingShareData, setPendingShareData] = useState(null);
+  const [quotaInfo, setQuotaInfo] = useState({ limit: 0, used: 0 });
   const [showExportModal, setShowExportModal] = useState(false);
   const [currentSourceMeta, setCurrentSourceMeta] = useState({ names: [], ids: [] });
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
@@ -1095,6 +1096,16 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
     return id;
   };
 
+  const getCacheKey = async ({ toolId, docIds, template, category }) => {
+    const raw = JSON.stringify({
+      toolId,
+      template,
+      category,
+      docIds: (docIds || []).slice().sort()
+    });
+    return await hashString(raw);
+  };
+
   const hashString = async (value) => {
     if (!value) return '';
     try {
@@ -1105,6 +1116,80 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
       }
     } catch {}
     return value;
+  };
+
+  const getTodayKey = () => new Date().toISOString().slice(0, 10);
+
+  const ensureQuota = async () => {
+    if (!user?.id) return { allowed: true, limit: 0, used: 0 };
+    const today = getTodayKey();
+    const DEFAULT_LIMIT = 40;
+    let record = null;
+    try {
+      const { data } = await supabase
+        .from('user_quota')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      record = data;
+    } catch {}
+    if (!record) {
+      const payload = { user_id: user.id, daily_limit: DEFAULT_LIMIT, used_today: 0, last_reset: today };
+      try { await supabase.from('user_quota').upsert(payload); } catch {}
+      setQuotaInfo({ limit: DEFAULT_LIMIT, used: 0 });
+      return { allowed: true, limit: DEFAULT_LIMIT, used: 0 };
+    }
+    let used = record.used_today || 0;
+    let limit = record.daily_limit || DEFAULT_LIMIT;
+    if (record.last_reset !== today) {
+      used = 0;
+      try {
+        await supabase.from('user_quota').upsert({ user_id: user.id, daily_limit: limit, used_today: 0, last_reset: today });
+      } catch {}
+    }
+    setQuotaInfo({ limit, used });
+    if (used >= limit) return { allowed: false, limit, used };
+    return { allowed: true, limit, used };
+  };
+
+  const consumeQuota = async () => {
+    if (!user?.id) return;
+    const today = getTodayKey();
+    const nextUsed = (quotaInfo.used || 0) + 1;
+    try {
+      await supabase.from('user_quota').upsert({
+        user_id: user.id,
+        daily_limit: quotaInfo.limit || 40,
+        used_today: nextUsed,
+        last_reset: today
+      });
+      setQuotaInfo(prev => ({ ...prev, used: nextUsed }));
+    } catch {}
+  };
+
+  const logUsage = async ({ toolId, sessionId, cached }) => {
+    if (!user?.id) return;
+    try {
+      await supabase.from('usage_logs').insert([{
+        user_id: user.id,
+        session_id: sessionId || null,
+        tool_id: toolId,
+        cached: !!cached
+      }]);
+    } catch {}
+  };
+
+  const logAudit = async ({ action, entity, entityId, metadata }) => {
+    if (!user?.id) return;
+    try {
+      await supabase.from('audit_logs').insert([{
+        user_id: user.id,
+        action,
+        entity,
+        entity_id: entityId ? String(entityId) : null,
+        metadata: metadata || {}
+      }]);
+    } catch {}
   };
 
   const finalizeShareAccess = async (data) => {
@@ -1220,6 +1305,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
       setShareStatus('Paylaşım oluşturulamadı');
       return;
     }
+    logAudit({ action: 'share_created', entity: 'room_share', entityId: data.id, metadata: { role: shareRole, expiresAt, maxViews, maxDevices } });
     const link = `${window.location.origin}/room/${sessionId}?token=${data.token}`;
     setShareLink(link);
     setShareList(prev => [data, ...prev]);
@@ -1259,6 +1345,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
   const revokeShare = async (shareId) => {
     await supabase.from('room_shares').delete().eq('id', shareId);
     setShareList(prev => prev.filter(s => s.id !== shareId));
+    logAudit({ action: 'share_revoked', entity: 'room_share', entityId: shareId });
   };
 
   const copyShareLink = async (token) => {
@@ -1629,7 +1716,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
 
       // Prompt Hazırlığı
       let prompt = "";
-        let responseMimeType = "text/plain";
+      let responseMimeType = "text/plain";
 
         if (type === 'SUMMARY') prompt = "Aşağıdaki metinleri kullanarak detaylı, maddeler halinde bir özet çıkar.";
         
@@ -1850,6 +1937,55 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
         prompt += `\n\nŞABLON: ${templateHints[outputTemplate]}`;
       }
 
+      const cacheKey = await getCacheKey({
+        toolId: type,
+        docIds: selectedDocIds,
+        template: outputTemplate,
+        category: categoryId
+      });
+      if (cacheKey) {
+        try {
+          if (user?.id) {
+            const { data: cached } = await supabase
+              .from('interaction_cache')
+              .select('*')
+              .eq('cache_key', cacheKey)
+              .eq('user_id', user.id)
+              .maybeSingle();
+            if (cached && (!cached.expires_at || new Date(cached.expires_at) > new Date())) {
+              setInteractionData(cached.payload);
+              const meta = cached.meta || {};
+              setCurrentSourceMeta({ names: meta.sourceNames || [], ids: meta.sourceIds || [] });
+              setCurrentInteractionMeta({ ...meta, cached: true });
+              setIsInteractionLoading(false);
+              await logUsage({ toolId: type, sessionId: currentSessionId, cached: true });
+              return;
+            }
+          }
+        } catch {}
+        try {
+          const localRaw = localStorage.getItem(`interaction_cache_${cacheKey}`);
+          if (localRaw) {
+            const local = JSON.parse(localRaw);
+            if (!local.expires_at || new Date(local.expires_at) > new Date()) {
+              setInteractionData(local.payload);
+              const meta = local.meta || {};
+              setCurrentSourceMeta({ names: meta.sourceNames || [], ids: meta.sourceIds || [] });
+              setCurrentInteractionMeta({ ...meta, cached: true });
+              setIsInteractionLoading(false);
+              return;
+            }
+          }
+        } catch {}
+      }
+
+      const quota = await ensureQuota();
+      if (!quota.allowed) {
+        setInteractionData(`Günlük limit doldu (${quota.used}/${quota.limit}). Lütfen yarın tekrar dene.`);
+        setIsInteractionLoading(false);
+        return;
+      }
+
       // Yapay Zeka İsteği (Context Injection)
       const systemInstructionText = contextText
         ? `${SYSTEM_PROMPT}\n\nKULLANACAĞIN KAYNAK METİN:\n---\n${contextText}\n---`
@@ -1916,6 +2052,28 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
         preview,
         meta
       });
+      if (cacheKey) {
+        const cacheItem = {
+          cache_key: cacheKey,
+          user_id: user?.id || null,
+          session_id: currentSessionId,
+          tool_id: type,
+          template: outputTemplate,
+          payload: finalPayload,
+          meta,
+          expires_at: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
+        };
+        try {
+          if (user?.id) {
+            await supabase.from('interaction_cache').upsert(cacheItem, { onConflict: 'cache_key' });
+          }
+        } catch {}
+        try {
+          localStorage.setItem(`interaction_cache_${cacheKey}`, JSON.stringify(cacheItem));
+        } catch {}
+      }
+      await consumeQuota();
+      await logUsage({ toolId: type, sessionId: currentSessionId, cached: false });
       if (['DEFENSE','STRESS_TEST','PITCH','HARSH_Q','METHODOLOGY','CONCEPT_EXPLAIN'].includes(type)) {
         const memText = typeof finalPayload === 'string'
           ? finalPayload
@@ -2731,10 +2889,35 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
       return;
     }
     if (file.size > 15 * 1024 * 1024) {
-      setVideoStatus('Video çok büyük. 15MB altı dosya yükleyin (MVP sınırı).');
-      return;
+      setVideoStatus('Video büyük. Storage üzerinden yükleniyor...');
     }
     setVideoStatus('Video yükleniyor...');
+    const uploadToStorage = async () => {
+      const path = `${sessionId}/${Date.now()}-${file.name}`;
+      const { data, error } = await supabase.storage.from('jury-videos').upload(path, file, { upsert: true });
+      if (error) return null;
+      return data?.path || path;
+    };
+    let filePath = null;
+    try {
+      filePath = await uploadToStorage();
+    } catch {}
+    if (filePath) {
+      const payload = {
+        session_id: sessionId,
+        category_id: projectCategory?.id || null,
+        file_name: file.name,
+        mime_type: file.type,
+        storage_bucket: 'jury-videos',
+        file_path: filePath
+      };
+      const { data, error } = await supabase.from('jury_videos').insert([payload]).select().single();
+      if (!error && data) {
+        setVideoUploads(prev => [data, ...prev]);
+        setVideoStatus('Video storage üzerine yüklendi.');
+        return;
+      }
+    }
     const reader = new FileReader();
     reader.onload = async (e) => {
       const base64 = e.target.result.split(',')[1];
@@ -2748,7 +2931,7 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
       const { data, error } = await supabase.from('jury_videos').insert([payload]).select().single();
       if (!error && data) {
         setVideoUploads(prev => [data, ...prev]);
-        setVideoStatus('Video yüklendi. Analiz kuyruğa alındı.');
+        setVideoStatus('Video yüklendi (base64).');
       } else {
         setVideoStatus('Yükleme başarısız.');
       }
@@ -3730,6 +3913,11 @@ export default function EduNotebook({ initialSessionId = null, onBackHome = null
               ))}
             </select>
           </div>
+          {quotaInfo.limit > 0 && (
+            <div className="mt-2 text-[10px] text-[var(--muted)]">
+              Günlük limit: {quotaInfo.used}/{quotaInfo.limit}
+            </div>
+          )}
           <div className="mt-3 p-3 rounded-2xl bg-[var(--panel-2)] border border-[var(--border)]">
             <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)] mb-2">Çıktı Etiketi</div>
             <input
