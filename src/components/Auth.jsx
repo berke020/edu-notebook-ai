@@ -11,6 +11,8 @@ export default function Auth({ onAuthed }) {
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [info, setInfo] = useState('');
+  const [resetEmailSent, setResetEmailSent] = useState(false);
+  const [showPasswordHelp, setShowPasswordHelp] = useState(false);
 
   React.useEffect(() => {
     if (cooldown <= 0) return;
@@ -30,6 +32,7 @@ export default function Auth({ onAuthed }) {
     setError('');
     setInfo('');
     setLoading(true);
+    setResetEmailSent(false);
     try {
       if (mode === 'register') {
         const { data, error: signUpError } = await supabase.auth.signUp({
@@ -50,17 +53,19 @@ export default function Auth({ onAuthed }) {
         onAuthed?.();
       }
     } catch (e2) {
-      const msg = e2.message || 'Giriş yapılamadı.';
+      const msg = e2?.message || 'Giriş yapılamadı.';
       if (msg.includes('Too Many Requests')) {
-        setError('Çok fazla deneme yapıldı. 60 sn bekleyip tekrar dene.');
+        setError('Çok fazla deneme yapıldı. 60 sn bekleyip tekrar deneyin.');
         setCooldown(60);
       } else if (msg.toLowerCase().includes('invalid login')) {
         setError('E-posta veya şifre hatalı.');
       } else if (msg.toLowerCase().includes('user already registered')) {
         setError('Bu e-posta zaten kayıtlı. Giriş yapmayı deneyin.');
         setMode('login');
+      } else if (msg.toLowerCase().includes('email') && msg.toLowerCase().includes('confirmation')) {
+        setError('E-postanı doğrulamalısın. Doğrulama sonrası giriş yapabilirsin.');
       } else {
-        setError(msg);
+        setError('Bir sorun oluştu. Lütfen tekrar deneyin.');
       }
     } finally {
       setLoading(false);
@@ -74,8 +79,44 @@ export default function Auth({ onAuthed }) {
       type: 'signup',
       email
     });
-    if (resendError) setError(resendError.message);
+    if (resendError) setError('Doğrulama e-postası gönderilemedi.');
     else setInfo('Doğrulama e-postası tekrar gönderildi.');
+  };
+
+  const handleResetPassword = async () => {
+    setError('');
+    setInfo('');
+    setLoading(true);
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth`
+      });
+      if (resetError) throw resetError;
+      setResetEmailSent(true);
+      setInfo('Şifre yenileme linki e-postana gönderildi.');
+    } catch {
+      setError('Şifre sıfırlama linki gönderilemedi. E-postanı kontrol et.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSocial = async (provider) => {
+    setError('');
+    setInfo('');
+    setLoading(true);
+    try {
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/app`
+        }
+      });
+      if (oauthError) throw oauthError;
+    } catch {
+      setError('Sosyal giriş başlatılamadı. Lütfen tekrar dene.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -146,12 +187,61 @@ export default function Auth({ onAuthed }) {
                 <Lock size={16} className="text-[#9AA4B2]" />
                 <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Şifre" className="bg-transparent text-sm outline-none w-full" />
               </div>
+              {mode === 'register' && (
+                <div className="text-[10px] text-[#9AA4B2]">
+                  Şifre en az 8 karakter olmalı. Harf + sayı önerilir.
+                </div>
+              )}
+              {mode === 'login' && (
+                <div className="flex items-center justify-between text-[10px] text-[#9AA4B2]">
+                  <button type="button" onClick={() => setShowPasswordHelp(prev => !prev)} className="hover:text-white">
+                    Şifre şartları
+                  </button>
+                  <button type="button" onClick={handleResetPassword} className="hover:text-white" disabled={loading}>
+                    Şifremi unuttum
+                  </button>
+                </div>
+              )}
+              {showPasswordHelp && (
+                <div className="text-[10px] text-[#9AA4B2]">
+                  Güvenlik için en az 8 karakter, harf + sayı + özel karakter öneriyoruz.
+                </div>
+              )}
               {info && <div className="text-xs text-emerald-400">{info}</div>}
               {error && <div className="text-xs text-red-400">{error}</div>}
               <button disabled={loading || cooldown > 0} className="w-full px-4 py-3 rounded-2xl bg-[#F5B84B] text-[#1b1b1b] font-semibold disabled:opacity-60">
                 {loading ? 'Bekleyin...' : (cooldown > 0 ? `Tekrar dene (${cooldown}s)` : (mode === 'login' ? 'Giriş Yap' : 'Kayıt Ol'))}
               </button>
             </form>
+
+            <div className="mt-4">
+              <div className="text-[10px] tracking-[0.3em] text-[#9AA4B2] mb-3">SOSYAL GİRİŞ</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <button
+                  onClick={() => handleSocial('google')}
+                  className="px-4 py-3 rounded-2xl bg-[rgba(10,14,20,0.9)] border border-[rgba(255,255,255,0.08)] text-sm hover:text-white"
+                  disabled={loading}
+                >
+                  Google ile devam et
+                </button>
+                <button
+                  onClick={() => handleSocial('apple')}
+                  className="px-4 py-3 rounded-2xl bg-[rgba(10,14,20,0.9)] border border-[rgba(255,255,255,0.08)] text-sm hover:text-white"
+                  disabled={loading}
+                >
+                  Apple ile devam et
+                </button>
+              </div>
+              <div className="text-[10px] text-[#9AA4B2] mt-3">
+                Sosyal giriş için Supabase OAuth sağlayıcılarını etkinleştirmen gerekir.
+              </div>
+            </div>
+
+            <div className="mt-4 p-4 rounded-2xl bg-[rgba(10,14,20,0.9)] border border-[rgba(255,255,255,0.08)] text-[10px] text-[#9AA4B2]">
+              {mode === 'register'
+                ? 'Kayıt sonrası e-posta doğrulaması yapılır. Doğruladıktan sonra giriş yapabilirsin.'
+                : 'Giriş sonrası otomatik olarak çalışma odana yönlendirilirsin.'}
+            </div>
           </div>
         </div>
       </div>
