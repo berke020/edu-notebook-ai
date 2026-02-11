@@ -107,7 +107,6 @@ export default function Landing() {
           EduNotebook
         </div>
         <div className="flex items-center gap-3">
-          <a href="#tour" className="text-sm text-[#9AA4B2] hover:text-white">Ürün Turu</a>
           <a href="#pricing" className="text-sm text-[#9AA4B2] hover:text-white">Ücretlendirme</a>
           <a href="#faq" className="text-sm text-[#9AA4B2] hover:text-white">S.S.S</a>
           <a href="/auth" className="px-4 py-2 rounded-xl bg-[#F5B84B] text-[#1b1b1b] text-sm font-semibold">Ücretsiz Başla</a>
